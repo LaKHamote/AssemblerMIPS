@@ -7,12 +7,12 @@
 
 		
 		jal	readFile
-		la	$s7,fileWords # ponteiro para o texto
+		la	$s7,fileWords 			# ponteiro para o texto
 		#jal 	printArq
-blackLine:	jal	readByte			# ficar em lp infinito enquanto
-		beq	$v1,10,blackLine		# tiver linhas em branco ( 10 == '\n' ) 
+		jal 	consumeBlankLines
+		jal 	readByte
 		bne	$v1,'.',printErrorMsg
-maybeData:	jal	readByte
+		jal	readByte
 		bne	$v1,'d',maybeText
 		jal	readByte
 		bne	$v1,'a',printErrorMsg
@@ -23,6 +23,10 @@ maybeData:	jal	readByte
 		jal	readByte
 		bne	$v1,10,printErrorMsg
 		j	dataSection
+		
+findText:	jal 	consumeBlankLines
+		jal 	readByte
+		bne	$v1,'.',printErrorMsg
 maybeText:	bne	$v1,'t',printErrorMsg
 		jal	readByte
 		bne	$v1,'e',printErrorMsg
@@ -58,7 +62,7 @@ readFile:	# ler o filePath
 		syscall
 		# fechar arquivo 
 		li 	$v0,16
-		move	$a0,$t0		# passar file descriptor para fechá-lo
+		move	$a0,$t0		# passar file descriptor para fechï¿½-lo
 		syscall
 		jr	$ra
 
@@ -67,7 +71,7 @@ readByte:	# ler um Byte (Char) e armazena em $v1, incrementando o ponteiro
 		addi	$s7,$s7,1
 		jr	$ra
 		
-printChar:	# mostrar na tela o conteúdo de $a0 como char
+printChar:	# mostrar na tela o conteï¿½do de $a0 como char
 		li	$v0,11
 		syscall	
 		jr	$ra				
@@ -83,20 +87,49 @@ printErrorMsg:	li	$v0,4
 		syscall
 		j	end
 
-readUntilBlank: # to pensando em tlz ler uma palavra para comparar facilmente depois
+consumeBlankLines: # consome todos os '\n'
+		lbu	$t1,($s7)
+		addi	$s7,$s7,1
+		beq	$t1,10,consumeBlankLines
+		addi	$s7,$s7,-1
+		jr	$ra
 		
 		
-dataSection:	# provavelmente a primeira coisa é label -> NAME: .STORAGEFORMAT VALUE
-		jal	readByte			# ficar em lp infinito enquanto
-		beq	$v1,10,dataSection		# tiver linhas em branco ( 10 == '\n' )
-		 
+dataSection:	# provavelmente a primeira coisa ï¿½ label -> NAME: .STORAGEFORMAT VALUE
+		jal	consumeBlankLines
+		
+		jal	findText
 		j	end
 
-textSection:	# provavelmente a primeira coisa é cmd -> opcode $, $
-		jal	readByte			# ficar em lp infinito enquanto
-		beq	$v1,10,dataSection		# tiver linhas em branco ( 10 == '\n' )
+textSection:	# provavelmente a primeira coisa eh cmd -> opcode $xx, $yy                                               #!!!!!!!!! checar se os $t estao mantendo seus valores originais
+
+		#li	$a0,'W'
+		#jal 	printChar
 		
-		j	end
+		jal	consumeBlankLines
+		move	$t7,$s7				# salvo o endereco que estou lendo para comparar do zero prox opcodes
+		move	$t0,$zero			# contador para indice do array dos opcodes
+		move	$t1,$zero			# contador para indice do char do opcode da chave atual
+lp:		lb	$t2,cmdKeys($t1)
+		move	$a0,$t2
+		jal 	printChar
+		jal	readByte
+		beq	$v1,10,match			# se lemos '/n' ou ' ' , ja lemos 
+		beq	$v1,' ',match			# a palavra toda e temos um match
+		bne	$t2,$v1,nextKey	
+		addi	$t1,$t1,1		
+		j 	lp		
+match:		bne	$t2,',',nextKey			# por convencao as chaves terminam em ','. Entao garanto que li a chave toda para evitar palavras contidas: add esta em addi
+		li	$a0,'V'
+		jal 	printChar
+		j 	end
+findNextKey:	addi	$t1,$t1,1
+		lb	$t2,cmdKeys($t1)
+nextKey:	bne	$t2,',',findNextKey
+		addi	$t1,$t1,1
+		addi	$t0,$t0,4			# salvo o index do proximo word (4 bytes)
+		move	$s7,$t7				# reseto o ponteiro do arq para comparar com outro opcode
+		j	lp
 
 	
 		
@@ -107,11 +140,12 @@ textSection:	# provavelmente a primeira coisa é cmd -> opcode $, $
 	
 	
 .data
-	filePath: 	.asciiz "D:/example_saida.asm"
-	fileWords: 	.space  1024
-	errorMsg:	.asciiz "Comando não reconhecido"
-	labelsArea:	.space 1024 # ???????? Tlz separar uma área de memória apenas para as labels lidas
-	 
+	filePath: 	.asciiz 	"D:/example_saida.asm"
+	fileWords: 	.space  	1024
+	errorMsg:	.asciiz 	"Comando nï¿½o reconhecido"
+	sectionKeys:	.asciiz		"data,text"
+	cmdKeys:	.asciiz		"add,addi,addiu,addu,and,andi,beq,bgez,bgezal,bne,clo,div,j,jal,jr,lb,lui,lw,mfhi,mflo,movn,mul,mult,nor,or,ori,sb,sll,slt,slti,sltu,sra,srav,srl,sub,subu,sw,xor,xori"
+	opCode:		.word		0x020,0x08
 	
 	
 	
