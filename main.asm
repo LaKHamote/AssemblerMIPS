@@ -3,7 +3,7 @@
 		#move	$a0,$v1
 		#jal 	printChar
 		#j	end
-ex:		xor 	$t4, $t3, $zero
+ex:		xor 	$t4, $zero, $zero
 
 		jal	readFile
 		la	$s7,fileWords 			# ponteiro para o texto
@@ -188,8 +188,10 @@ getRegCode:	# le o registrador atual, se achar, e retorna o codigo em $v0 ou 0 s
 		move	$v0,$zero	      		# a principio assumo que nao ha registrador
 		addi	$sp,$sp,-4
 		sw	$ra,0($sp)
-		jal 	readNotNullByte			
-		beq	$v1,10,noReg			# se leu um '\n' nao ha mais registrador 
+		addi	$s7,$s7,-1			#
+		jal 	readByte			# releio o ultimo Byte para ver se pulamos de linha
+		beq	$v1,10,noReg			# se leu um '\n', estamos em outra linha e nao ha mais registradores
+		jal 	readNotNullByte	
 		bne	$v1,'$',printErrorMsg		# registradores comecam com $
 		lbu	$t1,($s7)
 		bltu	$t1,48,printErrorMsg		# aqui lemos um caracter que nao existe nos registradores
