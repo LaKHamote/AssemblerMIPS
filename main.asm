@@ -38,7 +38,21 @@ maybeText:	bne	$v1,'t',printErrorMsg
 		bne	$v1,10,printErrorMsg
 		j	textSection	
 		
+dataSection:	# provavelmente a primeira coisa eh label -> NAME: .STORAGEFORMAT VALUE
+		jal	consumeBlankLines
+		
+		jal	findText
+		j	end
 
+textSection:	# provavelmente a primeira coisa eh cmd -> cmd $xx,$yy,$zz                                              
+		jal	consumeBlankLines
+		la	$a0,valuesA
+		la	$a1,keysA
+		jal	getValueAddr			# pega o endereco relativo a chave passada
+		beq	$v0, $zero, proxString
+		lb	$s0,($v0)			# salvo o funct do cmd lido
+		j 	proxString
+proxString:	
 	
 
 
@@ -62,7 +76,7 @@ readFile:	# ler o filePath
 		syscall
 		# fechar arquivo 
 		li 	$v0,16
-		move	$a0,$t0		# passar file descriptor para fech�-lo
+		move	$a0,$t0		# passar file descriptor para fecha-lo
 		syscall
 		jr	$ra
 
@@ -71,7 +85,7 @@ readByte:	# ler um Byte (Char) e armazena em $v1, incrementando o ponteiro
 		addi	$s7,$s7,1
 		jr	$ra
 		
-printChar:	# mostrar na tela o conte�do de $a0 como char
+printChar:	# mostrar na tela o conteudo de $a0 como char
 		li	$v0,11
 		syscall	
 		jr	$ra				
@@ -91,45 +105,48 @@ consumeBlankLines: # consome todos os '\n'
 		lbu	$t1,($s7)
 		addi	$s7,$s7,1
 		beq	$t1,10,consumeBlankLines
-		addi	$s7,$s7,-1
+		addi	$s7,$s7,-1			# volta em 1 o ponteiro do arq para lermos o char != '\n' depois
 		jr	$ra
-		
-		
-dataSection:	# provavelmente a primeira coisa � label -> NAME: .STORAGEFORMAT VALUE
-		jal	consumeBlankLines
-		
-		jal	findText
-		j	end
 
-textSection:	# provavelmente a primeira coisa eh cmd -> opcode $xx, $yy                                               #!!!!!!!!! checar se os $t estao mantendo seus valores originais
+consumeSpaces: # consome todos os ' '
+		lbu	$t1,($s7)
+		addi	$s7,$s7,1
+		beq	$t1,' ',consumeSpaces
+		addi	$s7,$s7,-1 			# volta em 1 o ponteiro do arq para lermos o char != ' ' depois
+		jr	$ra
 
-		#li	$a0,'W'
-		#jal 	printChar
 		
-		jal	consumeBlankLines
-		move	$t7,$s7				# salvo o endereco que estou lendo para comparar do zero prox opcodes
-		move	$t0,$zero			# contador para indice do array dos opcodes
-		move	$t1,$zero			# contador para indice do char do opcode da chave atual
-lp:		lb	$t2,cmdKeys($t1)
-		move	$a0,$t2
-		jal 	printChar
-		jal	readByte
-		beq	$v1,10,match			# se lemos '/n' ou ' ' , ja lemos 
-		beq	$v1,' ',match			# a palavra toda e temos um match
-		bne	$t2,$v1,nextKey	
+		
+		
+		
+		
+		
+		
+		
+#!!!!!!!!! checar se os $t estao mantendo seus valores originais        
+getValueAddr:	# le a palavra atual e retorna, se achar, o ponteiro para o hexa opcode($v0) e fucntion ($v0+1) ou 0 se nao achar
+		move	$v0,$zero	      		# a principio assumo que nao achou e altero $v0 apenas se achar
+		move	$t7,$s7				# salvo o endereco que estou lendo para comparar do inicio para os proximos comandos da string
+		move	$t0,$a0				# ponteiro para indice do array dos opcodes (Hexas)
+		move	$t1,$a1				# ponteiro para indice do char a ser lido da string de comandos
+checkByte:	lb	$t2,($t1)			# byte lido da string de comandos
+		lbu	$t3,($s7)			# byte lido do arq
+		addi	$s7,$s7,1
+		beq	$t3,' ',match			# se achamos ' ', entao ja lemos palavra toda e temos um match
+		bne	$t2,$t3,nextKey	
 		addi	$t1,$t1,1		
-		j 	lp		
-match:		bne	$t2,',',nextKey			# por convencao as chaves terminam em ','. Entao garanto que li a chave toda para evitar palavras contidas: add esta em addi
-		li	$a0,'V'
-		jal 	printChar
-		j 	end
+		j 	checkByte		
 findNextKey:	addi	$t1,$t1,1
-		lb	$t2,cmdKeys($t1)
+		lb	$t2,($t1)
+		beq	$t2,0,ret			# se achar zero, ja leu a string toda sem achar o comando
 nextKey:	bne	$t2,',',findNextKey
 		addi	$t1,$t1,1
-		addi	$t0,$t0,4			# salvo o index do proximo word (4 bytes)
+		addi	$t0,$t0,1			# salvo o index dos proximos byte !!!!!!!!!!!!!!!!!!
 		move	$s7,$t7				# reseto o ponteiro do arq para comparar com outro opcode
-		j	lp
+		j	checkByte
+match:		bne	$t2,',',nextKey			# por convencao as chaves terminam em ','. Entao garanto que li a chave toda para evitar palavras contidas: add esta em addi
+		move	$v0,$t0
+ret:		jr 	$ra
 
 	
 		
@@ -142,10 +159,6 @@ nextKey:	bne	$t2,',',findNextKey
 .data
 	filePath: 	.asciiz 	"D:/example_saida.asm"
 	fileWords: 	.space  	1024
-	errorMsg:	.asciiz 	"Comando n�o reconhecido"
-	sectionKeys:	.asciiz		"data,text"
-	cmdKeys:	.asciiz		"add,addi,addiu,addu,and,andi,beq,bgez,bgezal,bne,clo,div,j,jal,jr,lb,lui,lw,mfhi,mflo,movn,mul,mult,nor,or,ori,sb,sll,slt,slti,sltu,sra,srav,srl,sub,subu,sw,xor,xori"
-	opCode:		.word		0x020,0x08
-	
-	
-	
+	errorMsg:	.asciiz 	"Comando nao reconhecido"
+	keysA:		.asciiz		"add,addu,and,mfhi,mflo,movn,nor,or,slt,sltu,sub,subu,xor"
+	valuesA:	.byte		0x20,0x21,0x24,0x10,0x12,0xb,0x27,0x25,0x2a,0x2b,0x22,0x23,0x26	
