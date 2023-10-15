@@ -3,7 +3,7 @@
 		#move	$a0,$v1
 		#jal 	printChar
 		#j	end
-ex:		add     $t1, $t2 , $t3
+ex:		add     $t1, $t2,$t3
 
 		jal	readFile
 		la	$s7,fileWords 			# ponteiro para o texto
@@ -184,15 +184,11 @@ match:		bne	$t2,',',nextKey			# por convencao as chaves terminam em ','. Entao g
 notFound:	jr 	$ra
 
 #!!! ainda nao ta prft, se tiver espaco entre reg e ',', ele nao consegue compilar	
-getRegCode:	# le o registrador atual, se achar, e retorna o codigo em $v0 ou 0 se nao ha registrador para ler
-		move	$v0,$zero	      		# a principio assumo que nao ha registrador
+getRegCode:	# le o registrador atual, se achar, e retorna o codigo em $v0 ou da erro por falta de parametros(registradores)
 		addi	$sp,$sp,-4
 		sw	$ra,0($sp)
-		addi	$s7,$s7,-1			#
-		jal 	readByte			# releio o ultimo Byte para ver se pulamos de linha anteriormente
-		beq	$v1,10,noReg			# 	se leu um '\n', estamos em outra linha e nao ha mais registradores
 		jal 	readNotNullByte	
-		beq	$v1,10,noReg			# se ler um '\n', pulamos para a prox linha
+		beq	$v1,10,printErrorMsg		# se ler um '\n', ! poucos parametros
 		bne	$v1,'$',printErrorMsg		# registradores comecam com $
 		lbu	$t1,($s7)
 		bltu	$t1,48,printErrorMsg		# aqui lemos um caracter que nao existe nos registradores
@@ -204,7 +200,7 @@ keepKeys:	la	$a0,regValues			# agr temos que achar o valor desse registrador
 		jal	getValueAddr			# pega o endereco relativo a chave passada
 		beq	$v0, $zero,printErrorMsg	# registrador inexistente
 		lb	$v0,($v0)
-noReg:		lw	$ra,0($sp)
+		lw	$ra,0($sp)
 		addi	$sp,$sp,4	
 		jr	$ra	
 		

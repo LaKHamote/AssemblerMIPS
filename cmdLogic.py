@@ -12,8 +12,6 @@ opcodesR = [
               "add",   # 000000    rs     rt     rd    00000   0x20
               "addu",  # 000000    rs     rt     rd    00000   0x21
               "and",   # 000000    rs     rt     rd    00000   0x24
-              "mfhi",  # 000000   00000  00000   rd    00000   0x10
-              "mflo",  # 000000   00000  00000   rd    00000   0x12
               "movn",  # 000000    rs     rt     rd    00000   0xb
               "nor",   # 000000    rs     rt     rd    00000   0x27
               "or",    # 000000    rs     rt     rd    00000   0x25
@@ -23,16 +21,28 @@ opcodesR = [
               "subu",  # 000000    rs     rt     rd    00000   0x23
               "xor",   # 000000    rs     rt     rd    00000   0x26
 
+# params ordem:     rd
+# cmds com:                                                   funct
+              "mfhi",  # 000000   00000  00000   rd    00000   0x10
+              "mflo",  # 000000   00000  00000   rd    00000   0x12
+
 # params ordem:     rd,rs,rt
 # cmds com:            opcode                                 funct
-              "clo",   # 0x1c      rs    00000   rd    00000   0x21
               "mul",   # 0x1c      rs     rt     rd    00000   0x2
+
+# params ordem:     rs
+# cmds com:            opcode                                 funct
+              "clo",   # 0x1c      rs    00000   rd    00000   0x21
 
 # params ordem:     rs,rt
 # parametros nao comecam com rd:                              funct
               "div",   # 000000    rs     rt    00000  00000   0x1a          
-              "jr",    # 000000    rs    00000  00000  00000   0x8
               "mult",  # 000000    rs     rt    00000  00000   0x18
+
+# params ordem:     rs
+# parametros nao comecam com rd:                              funct
+              "jr",    # 000000    rs    00000  00000  00000   0x8
+
 
 # params ordem:     rd,rt,rs/sa ??????????????????
 # cmds com:                                            shamt  fucnt
@@ -41,6 +51,8 @@ opcodesR = [
               "srav",  # 000000    rs     rt     rd    00000   0x7
               "srl",   # 000000    rs     rt     rd     sa     0x2
 ]
+
+
 
 # 4 particoes:
        # com 2 registradores
