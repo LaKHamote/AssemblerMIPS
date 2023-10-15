@@ -70,3 +70,10 @@ opcodeJ = [
               "j",     #  0x2              target
               "jal"    #  0x3              target  
 ]
+'''
+		addi	$s7,$s7,-1			#
+		jal 	readNotNullByte			# releio o ultimo byte lido, que pode ser ' ' ou ',' ou '\n'
+		addi	$s7,$s7,1			# retorno o ponteiro pro valor atual
+		beq	$v1,10,noReg			# se era '\n' nao ha mais registrador e ja pulamos a linha
+		jal 	readNotNullByte
+       '''
