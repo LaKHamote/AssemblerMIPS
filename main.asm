@@ -14,6 +14,18 @@ sltu $t7, $s4, $s5
 sub $t8, $s6, $s7
 subu $t9, $s0, $t9
 xor $t0, $s0, $s1
+add $t2, $s1, $s3
+addu $t3, $s5, $s7
+and $t4, $s2, $s6
+movn $t5, $s7, $s4
+nor $t6, $s3, $s6
+or $t7, $s0, $s5
+slt $t8, $s4, $s1
+sltu $t9, $s6, $s2
+sub $t0, $s7, $s3
+subu $t1, $s6, $s5
+xor $t6, $s5, $s0
+
 
 
 
