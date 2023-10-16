@@ -3,7 +3,7 @@
 		#move	$a0,$v1
 		#jal 	printChar
 		#j	end
-ex:		add     $t1, $t2,$t3
+ex:		add     $t4, $t4,$t3
 
 		jal	readFile
 		la	$s7,fileWords 			# ponteiro para o texto
@@ -50,7 +50,7 @@ textSection:	# provavelmente a primeira coisa eh cmd -> cmd $xx,$yy,$zz
 		li	$a2,1				# numero de values por key
 		jal	getValueAddr			# pega o endereco relativo a chave passada
 		beq	$v0, $zero,typeB
-		lb	$s0,($v0)			# salvo o funct do cmd lido
+		lb	$s0,($v0)			# pego o funct do cmd lido
 # pra cima, li o cmd e peguei seu codigo unico -> funct
 
 		jal 	getRegCode
@@ -65,23 +65,22 @@ textSection:	# provavelmente a primeira coisa eh cmd -> cmd $xx,$yy,$zz
 		move	$s3,$v0			# salvo o codigo do registrador rt lido
 # pra cima, li o terceiro regs e peguei seu codigo unico -> rt
 
-assemblerR:	move	$s6,$zero
-		add	$s6,$s6,$s5
-		sll	$s6,$s6,5
-		add	$s6,$s6,$s4
-		sll	$s6,$s6,5
-		add	$s6,$s6,$s3
-		sll	$s6,$s6,5
-		add	$s6,$s6,$s2
-		sll	$s6,$s6,5
-		add	$s6,$s6,$s1
-		sll	$s6,$s6,6
-		add	$s6,$s6,$s0
+		addi	$s7,$s7,-1
+		jal	readNotNullByte
+		bne	$v1,10,printErrorMsg	# muitos parametros
+# garanto que terminei de ler a linha toda sem achar mais registradores
+
+		addi	$sp,$sp,-24
+		sw	$s0,20($sp)	# funct
+		sw	$zero,16($sp) 	# shamt
+		sw	$s2,12($sp) 	# rd
+		sw	$s3,8($sp)	# rt
+		sw	$s4,4($sp)	# rs
+		sw	$zero,0($sp)	# opcode
+# pra cima, coloco os codigos na pilha
+		jal	assemblerR
 		
-		
-		
-		
-		
+					
 		
 typeB:
 typeC:###...
@@ -193,8 +192,8 @@ getRegCode:	# le o registrador atual, se achar, e retorna o codigo em $v0 ou da 
 		lbu	$t1,($s7)
 		bltu	$t1,48,printErrorMsg		# aqui lemos um caracter que nao existe nos registradores
 		la	$a1,regKeysNaN			# assumo que o registrador esta escrito com seu 'apelido':  $9 -> $t2
-		bge	$t1,58,keepKeys			# aqui lemos um caracter nao numerico entao acertamos na assunção acima
-		la	$a1,regKeysNum			# aqui lemos um caracter nao numerico entao erramos na assunção
+		bge	$t1,58,keepKeys			# aqui lemos um caracter nao numerico entao acertamos na assunï¿½ï¿½o acima
+		la	$a1,regKeysNum			# aqui lemos um caracter nao numerico entao erramos na assunï¿½ï¿½o
 keepKeys:	la	$a0,regValues			# agr temos que achar o valor desse registrador
 		li	$a2,1				# numero de values por key
 		jal	getValueAddr			# pega o endereco relativo a chave passada
@@ -204,7 +203,28 @@ keepKeys:	la	$a0,regValues			# agr temos que achar o valor desse registrador
 		addi	$sp,$sp,4	
 		jr	$ra	
 		
-		
+assemblerR:	# desempilho a pilha e monto codigo de instrucao tipo R em $v0: opcode(6bits) & rs(5bits) & rt(5bits) & rd(5bits) & shamt(5bits) & funct(6bits)
+		move	$t0,$zero
+		lw	$t1,0($sp)
+		add	$t0,$t0,$t1
+		sll	$t0,$t0,5
+		lw	$t1,4($sp)
+		add	$t0,$t0,$t1
+		sll	$t0,$t0,5
+		lw	$t1,8($sp)
+		add	$t0,$t0,$t1
+		sll	$t0,$t0,5
+		lw	$t1,12($sp)
+		add	$t0,$t0,$t1
+		sll	$t0,$t0,5
+		lw	$t1,16($sp)
+		add	$t0,$t0,$t1
+		sll	$t0,$t0,6
+		lw	$t1,20($sp)
+		add	$t0,$t0,$t1
+		add 	$sp,$sp,24
+		move	$v0,$t0
+		jr 	$ra	
 		
 	
 	
@@ -216,5 +236,5 @@ keepKeys:	la	$a0,regValues			# agr temos que achar o valor desse registrador
 	regKeysNum:	.asciiz		"0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,"
 	regKeysNaN:	.asciiz		"zero,at,v0,v1,a0,a1,a2,a3,t0,t1,t2,t3,t4,t5,t6,t7,s0,s1,s2,s3,s4,s5,s6,s7,t8,t9,k0,k1,gp,sp,fp,ra,"
 	regValues:	.byte		0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
-	keysA:		.asciiz		"add,addu,and,mfhi,mflo,movn,nor,or,slt,sltu,sub,subu,xor,"
-	valuesA:	.byte		0x20,0x21,0x24,0x10,0x12,0xb,0x27,0x25,0x2a,0x2b,0x22,0x23,0x26	
+	keysA:		.asciiz		"add,addu,and,movn,nor,or,slt,sltu,sub,subu,xor,"
+	valuesA:	.byte		0x20,0x21,0x24,0xb,0x27,0x25,0x2a,0x2b,0x22,0x23,0x26	
