@@ -3,7 +3,23 @@
 		#move	$a0,$v1
 		#jal 	printChar
 		#j	end
-ex:		add     $t4, $t4,$t3
+add $t0, $s0, $s1
+addu $t1, $s2, $s3
+and $t2, $s4, $s5
+movn $t3, $s6, $s7
+nor $t4, $s3, $s5
+or $t5, $s0, $s1
+slt $t6, $s2, $s3
+sltu $t7, $s4, $s5
+sub $t8, $s6, $s7
+subu $t9, $s0, $t9
+xor $t0, $s0, $s1
+
+
+
+
+
+		
 
 		jal	readFile
 		la	$s7,fileWords 			# ponteiro para o texto
@@ -45,6 +61,11 @@ dataSection:	# provavelmente a primeira coisa eh label -> NAME: .STORAGEFORMAT V
 
 textSection:	# provavelmente a primeira coisa eh cmd -> cmd $xx,$yy,$zz                                              
 		jal	consumeBlankLines
+		
+		lb	$t0,($s7)
+		beq	$t0,0,end
+# pra cima, temos a condicao de parada
+		
 		la	$a0,valuesA
 		la	$a1,keysA
 		li	$a2,1				# numero de values por key
@@ -71,18 +92,31 @@ textSection:	# provavelmente a primeira coisa eh cmd -> cmd $xx,$yy,$zz
 # garanto que terminei de ler a linha toda sem achar mais registradores
 
 		addi	$sp,$sp,-24
-		sw	$s0,20($sp)	# funct
-		sw	$zero,16($sp) 	# shamt
-		sw	$s2,12($sp) 	# rd
-		sw	$s3,8($sp)	# rt
-		sw	$s4,4($sp)	# rs
-		sw	$zero,0($sp)	# opcode
+		sb	$s0,20($sp)	# funct
+		sb	$zero,16($sp) 	# shamt
+		sb	$s2,12($sp) 	# rd
+		sb	$s3,8($sp)	# rt
+		sb	$s4,4($sp)	# rs
+		sb	$zero,0($sp)	# opcode
 # pra cima, coloco os codigos na pilha
+
 		jal	assemblerR
+		move	$t6,$v0
+#pra cima, armazeno em $t6 o hexa montado pra instr tipo R		
+		
+		move	$a0,$t6
+		jal	printHexa
+		li	$a0,10
+		jal	printChar
+		
+		
+# pra cima, escrevo no arquivo a compilacao: PC: hexa
+		j 	textSection
 		
 					
 		
-typeB:
+		
+typeB:		
 typeC:###...
 
 					
@@ -127,6 +161,11 @@ readNotNullByte:# ler proxs Bytes (Char) ate achar um (!= ' ') e armazena em $v1
 printChar:	# mostrar na tela o conteudo de $a0 como char
 		li	$v0,11
 		syscall	
+		jr	$ra
+		
+printHexa:	# mostrar na tela o conteudo de $a0 como hexadecimal
+		li	$v0,34
+		syscall	
 		jr	$ra				
 						
 printArq:	# mostrar na tela no o arquivo lido
@@ -154,6 +193,17 @@ consumeSpaces: # consome todos os ' '
 		beq	$t1,' ',consumeSpaces
 		addi	$s7,$s7,-1 			# volta em 1 o ponteiro do arq para lermos o char != ' ' depois
 		jr	$ra
+
+endInColon:	# ve se uma palavra termina em ':', retorna 1 caso Vdd e 0 Falso
+		move	$v0,$zero 			# assumo que nao termina em ':'
+		move 	$t7,$s7
+		lbu	$t0,($t7)
+		addi	$t7,$t7,1
+		bne	$t0,' ',endInColon
+		lb	$t0,-1($t7)
+		bne	$t0,':',noColon
+		li	$v0,1
+noColon:	jr	$ra
 		
 #!!!!!!!!! checar se os $t estao mantendo seus valores originais        
 getValueAddr:	# le a palavra atual e retorna, se achar, o ponteiro para o(s) valor(es) em $v0(+$a2) ou 0 se nao achar
@@ -203,25 +253,25 @@ keepKeys:	la	$a0,regValues			# agr temos que achar o valor desse registrador
 		addi	$sp,$sp,4	
 		jr	$ra	
 		
-assemblerR:	# desempilho a pilha e monto codigo de instrucao tipo R em $v0: opcode(6bits) & rs(5bits) & rt(5bits) & rd(5bits) & shamt(5bits) & funct(6bits)
+assemblerR:	# desempilho a pilha e monto o codigo de instrucao tipo R em $v0: opcode(6bits) & rs(5bits) & rt(5bits) & rd(5bits) & shamt(5bits) & funct(6bits)
 		move	$t0,$zero
-		lw	$t1,0($sp)
-		add	$t0,$t0,$t1
+		lb	$a0,0($sp)
+		add	$t0,$t0,$a0
 		sll	$t0,$t0,5
-		lw	$t1,4($sp)
-		add	$t0,$t0,$t1
+		lb	$a0,4($sp)
+		add	$t0,$t0,$a0
 		sll	$t0,$t0,5
-		lw	$t1,8($sp)
-		add	$t0,$t0,$t1
+		lb	$a0,8($sp)
+		add	$t0,$t0,$a0
 		sll	$t0,$t0,5
-		lw	$t1,12($sp)
-		add	$t0,$t0,$t1
+		lb	$a0,12($sp)
+		add	$t0,$t0,$a0
 		sll	$t0,$t0,5
-		lw	$t1,16($sp)
-		add	$t0,$t0,$t1
+		lb	$a0,16($sp)
+		add	$t0,$t0,$a0
 		sll	$t0,$t0,6
-		lw	$t1,20($sp)
-		add	$t0,$t0,$t1
+		lb	$a0,20($sp)
+		add	$t0,$t0,$a0
 		add 	$sp,$sp,24
 		move	$v0,$t0
 		jr 	$ra	
