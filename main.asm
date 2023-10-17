@@ -3,29 +3,11 @@
 		#move	$a0,$v1
 		#jal 	printChar
 		#j	end
-add $t0, $s0, $s1
-addu $t1, $s2, $s3
-and $t2, $s4, $s5
-movn $t3, $s6, $s7
-nor $t4, $s3, $s5
-or $t5, $s0, $s1
-slt $t6, $s2, $s3
-sltu $t7, $s4, $s5
-sub $t8, $s6, $s7
-subu $t9, $s0, $t9
-xor $t0, $s0, $s1
-add $t2, $s1, $s3
-addu $t3, $s5, $s7
-and $t4, $s2, $s6
-movn $t5, $s7, $s4
-nor $t6, $s3, $s6
-or $t7, $s0, $s5
-slt $t8, $s4, $s1
-sltu $t9, $s6, $s2
-sub $t0, $s7, $s3
-subu $t1, $s6, $s5
-xor $t6, $s5, $s0
+add $t0,                                   $s0, $s1           
+addu $t1,      $s2, $s3   
+   xor $t2,    $s4, $s5           
 
+  div         $t3,   $t7
 
 
 
@@ -78,11 +60,11 @@ textSection:	# provavelmente a primeira coisa eh cmd -> cmd $xx,$yy,$zz
 		beq	$t0,0,end
 # pra cima, temos a condicao de parada
 		
-		la	$a0,valuesA
-		la	$a1,keysA
+typeRA:		la	$a0,valuesRA
+		la	$a1,keysRA
 		li	$a2,1				# numero de values por key
 		jal	getValueAddr			# pega o endereco relativo a chave passada
-		beq	$v0, $zero,typeB
+		beq	$v0,$zero,typeRB
 		lb	$s0,($v0)			# pego o funct do cmd lido
 # pra cima, li o cmd e peguei seu codigo unico -> funct
 
@@ -124,12 +106,46 @@ textSection:	# provavelmente a primeira coisa eh cmd -> cmd $xx,$yy,$zz
 		
 # pra cima, escrevo no arquivo a compilacao: PC: hexa
 		j 	textSection
+
+typeRB:		addi	$s7,$s7,-1		# volto o ponteiro do arquivo para reler
+		la	$a0,valuesRB
+		la	$a1,keysRB
+		li	$a2,1			# numero de values por key
+		jal	getValueAddr		# pega o endereco relativo a chave passada
+		beq	$v0,$zero,typeRC
+		lb	$s0,($v0)		# funct
 		
-					
+		jal 	getRegCode
+		move	$s4,$v0			# rs
+		jal 	getRegCode
+		move	$s3,$v0			# rt
+		
+		addi	$s7,$s7,-1
+		jal	readNotNullByte
+		bne	$v1,10,printErrorMsg	# muitos parametros
+		
+		addi	$sp,$sp,-24
+		sb	$s0,20($sp)	# funct
+		sb	$zero,16($sp) 	# shamt
+		sb	$zero,12($sp) 	# rd
+		sb	$s3,8($sp)	# rt
+		sb	$s4,4($sp)	# rs
+		sb	$zero,0($sp)	# opcode
+# pra cima, coloco os codigos na pilha
+
+		jal	assemblerR
+		move	$t6,$v0
+#pra cima, armazeno em $t6 o hexa montado pra instr tipo R		
+		
+		move	$a0,$t6
+		jal	printHexa
+		li	$a0,10
+		jal	printChar
 		
 		
-typeB:		
-typeC:###...
+# pra cima, escrevo no arquivo a compilacao: PC: hexa
+		j 	textSection
+typeRC:###...
 
 					
 	
@@ -234,6 +250,7 @@ checkByte:	lb	$t2,($t1)			# byte lido da string de comandos
 		j 	checkByte		
 findNextKey:	addi	$t1,$t1,1
 		lb	$t2,($t1)
+		#move	$s7,$t7				# !!!! resolve, mas n eh eficiente
 		beq	$t2,0,notFound			# se achar zero, ja leu a string toda sem achar o comando
 nextKey:	bne	$t2,',',findNextKey
 		addi	$t1,$t1,1
@@ -263,7 +280,7 @@ keepKeys:	la	$a0,regValues			# agr temos que achar o valor desse registrador
 		lb	$v0,($v0)
 		lw	$ra,0($sp)
 		addi	$sp,$sp,4	
-		jr	$ra	
+		jr	$ra
 		
 assemblerR:	# desempilho a pilha e monto o codigo de instrucao tipo R em $v0: opcode(6bits) & rs(5bits) & rt(5bits) & rd(5bits) & shamt(5bits) & funct(6bits)
 		move	$t0,$zero
@@ -298,5 +315,7 @@ assemblerR:	# desempilho a pilha e monto o codigo de instrucao tipo R em $v0: op
 	regKeysNum:	.asciiz		"0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,"
 	regKeysNaN:	.asciiz		"zero,at,v0,v1,a0,a1,a2,a3,t0,t1,t2,t3,t4,t5,t6,t7,s0,s1,s2,s3,s4,s5,s6,s7,t8,t9,k0,k1,gp,sp,fp,ra,"
 	regValues:	.byte		0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
-	keysA:		.asciiz		"add,addu,and,movn,nor,or,slt,sltu,sub,subu,xor,"
-	valuesA:	.byte		0x20,0x21,0x24,0xb,0x27,0x25,0x2a,0x2b,0x22,0x23,0x26	
+	keysRA:		.asciiz		"add,addu,and,movn,nor,or,slt,sltu,sub,subu,xor,"
+	valuesRA:	.byte		0x20,0x21,0x24,0xb,0x27,0x25,0x2a,0x2b,0x22,0x23,0x26	
+	keysRB:		.asciiz		"div,mult,"
+	valuesRB:	.byte		0x1a,0x18
