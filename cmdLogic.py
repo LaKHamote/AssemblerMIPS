@@ -35,7 +35,7 @@ opcodesR = [
        ]},
 
        {"typeRD": [#registradores:  rd,rs,rt
-       # cmds com:             opcode                         funct
+       # cmds com:       opcode                               funct
               "mul",   # 0x1c      rs     rt     rd    00000   0x2
        ]},
 
@@ -44,16 +44,20 @@ opcodesR = [
               "clo",   # 0x1c      rs    00000   rd    00000   0x21
        ]},
 
-       {"typeRF": [#registradores: rd,rt,rs/sa ??????????????????
-       # cmds com:                                     shamt  fucnt
-              "sll",   # 000000    rs     rt     rd     sa      0
+       {"typeRF": [#registradores: rd,rt,sa
+       # cmds com:                                            funct
+              "sll",   # 000000   00000   rt     rd     sa      0
               "sra",   # 000000   00000   rt     rd     sa     0x3
-              "srav",  # 000000    rs     rt     rd    00000   0x7
-              "srl",   # 000000    rs     rt     rd     sa     0x2
+              "srl",   # 000000   00000   rt     rd     sa     0x2
        ]},
 
-       {"typeRG": [#registradores: rd
-       # cmds com:                                                   funct
+       {"typeRG": [#registradores: rd,rt,rs
+       # cmds com:                                            funct
+              "srav",  # 000000    rs     rt     rd    00000   0x7
+       ]},
+
+       {"typeRH": [#registradores: rd
+       # cmds com:                                            funct
               "mfhi",  # 000000   00000  00000   rd    00000   0x10
               "mflo",  # 000000   00000  00000   rd    00000   0x12
        ]},

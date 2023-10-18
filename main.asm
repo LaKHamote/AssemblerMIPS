@@ -346,9 +346,22 @@ printErrorMsg:
 	regKeysNaN:		.asciiz		"zero,at,v0,v1,a0,a1,a2,a3,t0,t1,t2,t3,t4,t5,t6,t7,s0,s1,s2,s3,s4,s5,s6,s7,t8,t9,k0,k1,gp,sp,fp,ra,"
 	regValues:		.byte		0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
 	keysRA:			.asciiz		"add,addu,and,movn,nor,or,slt,sltu,sub,subu,xor,"
-	valuesRA:		.byte		0x20,0x21,0x24,0xb,0x27,0x25,0x2a,0x2b,0x22,0x23,0x26	
+	valuesRA:		.byte		0x20,0x21,0x24,0xb,0x27,0x25,0x2a,0x2b,0x22,0x23,0x26	# funct
 	keysRB:			.asciiz		"div,mult,"
-	valuesRB:		.byte		0x1a,0x18
+	valuesRB:		.byte		0x1a,0x18 	# funct
+	keysRC:			.asciiz		"jr,"
+	valuesRC:		.byte		0x8
+	keysRD:			.asciiz		"mul,"
+	valuesRD:		.byte		0x1c,0x2 	# (opcode,funct)
+	keysRE:			.asciiz		"clo,"
+	valuesRE:		.byte		0x1c,0x21	# (opcode,funct)
+	keysRF:			.asciiz		"sll,sra,srl,"
+	valuesRF:		.byte		0,0x3,0x2	# funct
+	keysRG:			.asciiz		"srav,"
+	valuesRG:		.byte		0x7		# funct
+	keysRH:			.asciiz		"mfhi,mflo,"
+	valuesRH:		.byte		0x1a,0x18	# funct
+	
 	errorMsg:		.asciiz 	"Comando nao reconhecido."
 	msgFewParams:		.asciiz 	"Too few or incorrectly formatted operands."
 	msgManyParams:		 .asciiz 	"Too many operands."
