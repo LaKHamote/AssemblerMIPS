@@ -68,39 +68,28 @@ textSection:	# provavelmente a primeira coisa eh cmd -> cmd $xx,$yy,$zz
 		
 typeRA:		la	$a0,valuesRA
 		la	$a1,keysRA
-		li	$a2,1				# numero de values por key
+		li	$a2,1			# numero de values por key
 		li	$a3,' '
-		jal	getValueAddr			# pega o endereco relativo a chave passada
+		jal	getValueAddr		# pega o endereco relativo a chave passada
 		beq	$v0,$zero,typeRB
-		lb	$s0,($v0)			# pego o funct do cmd lido
-# pra cima, li o cmd e peguei seu codigo unico -> funct
+		# Achei a instr, agora so empilhar na pilha: funct:5($sp) shamt(4) rd(3) rt(2) rs(1) opcode:0($sp)
+		addi	$sp,$sp,-8		# desloco 8 Bytes, mas nunca uso 6 ou 7($sp)
+		lb	$t0,($v0)		# pego o funct do cmd lido
+		sb	$t0,5($sp)		# empilhar funct
 		li	$a3,','
-		jal 	getRegCode
-		move	$s2,$v0			# salvo o codigo do registrador rd lido
-# pra cima, li o primeito regs e peguei seu codigo unico -> rd
+		jal 	getRegCode		# pegar cod do rd
+		sb	$v0,3($sp) 		# empilhar rd
 		li	$a3,','
-		jal 	getRegCode
-		move	$s4,$v0			# salvo o codigo do registrador rs lido
-# pra cima, li o segundo regs e peguei seu codigo unico -> rs
+		jal 	getRegCode		# pegar cod do rs
+		sb	$v0,1($sp)		# empilhar rs
 		li	$a3,10
-		jal 	getRegCode
-		move	$s3,$v0			# salvo o codigo do registrador rt lido
-# pra cima, li o terceiro regs e peguei seu codigo unico -> rt
-
+		jal 	getRegCode		# pegar cod do rt
+		sb	$v0,2($sp) 		# empilhar rt
 		addi	$s7,$s7,-1
 		jal	readNotNullByte
-		bne	$v1,10,errorManyParams	# muitos parametros
-# garanto que terminei de ler a linha toda sem achar mais registradores
-
-		addi	$sp,$sp,-24
-		sb	$s0,20($sp)	# funct
-		sb	$zero,16($sp) 	# shamt
-		sb	$s2,12($sp) 	# rd
-		sb	$s3,8($sp)	# rt
-		sb	$s4,4($sp)	# rs
-		sb	$zero,0($sp)	# opcode
-# pra cima, coloco os codigos na pilha
-
+		bne	$v1,10,errorManyParams
+		sb	$zero,4($sp) 		# empilhar shamt
+		sb	$zero,0($sp)		# empilhar opcode
 		jal	assemblerR
 		move	$t6,$v0
 #pra cima, armazeno em $t6 o hexa montado pra instr tipo R		
@@ -131,28 +120,22 @@ typeRB:		addi	$s7,$s7,-1		# volto o ponteiro do arquivo para reler
 		li	$a3,' '
 		jal	getValueAddr		# pega o endereco relativo a chave passada
 		beq	$v0,$zero,typeRC
-		lb	$s0,($v0)		# funct
+		# Achei a instr, agora so empilhar na pilha: funct:5($sp) shamt(4) rd(3) rt(2) rs(1) opcode:0($sp)
+		addi	$sp,$sp,-8
+		lb	$t0,($v0)
+		sb	$t0,5($sp)		# empilhar funct
 		li	$a3,','
 		jal 	getRegCode
-		move	$s4,$v0			# rs
-		
+		sb	$v0,1($sp)		# empilhar rs
 		li	$a3,10
 		jal 	getRegCode
-		move	$s3,$v0			# rt
-		
+		sb	$v0,2($sp)		# empilhar rt
 		addi	$s7,$s7,-1
 		jal	readNotNullByte
-		bne	$v1,10,errorManyParams	# muitos parametros
-		
-		addi	$sp,$sp,-24
-		sb	$s0,20($sp)	# funct
-		sb	$zero,16($sp) 	# shamt
-		sb	$zero,12($sp) 	# rd
-		sb	$s3,8($sp)	# rt
-		sb	$s4,4($sp)	# rs
-		sb	$zero,0($sp)	# opcode
-# pra cima, coloco os codigos na pilha
-
+		bne	$v1,10,errorManyParams
+		sb	$zero,4($sp) 		# empilhar shamt
+		sb	$zero,3($sp) 		# empilhar rd
+		sb	$zero,0($sp)		# empilhar opcode
 		jal	assemblerR
 		move	$t6,$v0
 #pra cima, armazeno em $t6 o hexa montado pra instr tipo R	
@@ -272,7 +255,8 @@ checkByte:	lb	$t2,($t1)			# byte lido da string de comandos
 		lbu	$t3,($s7)			# byte lido do arq
 		addi	$s7,$s7,1
 		beq	$t3,' ',match			# SE achamos ' ', entao ja lemos palavra toda e temos um match
-		beq	$t3,$a3,match			# OU se achamos nosso indicador - pode ser ',' ou '\n' ou ')'
+		beq	$t3,10,match			# SE achamos ' ', entao ja lemos palavra toda e temos um match
+		beq	$t3,$a3,match			# OU se achamos nosso indicador - pode ser ',' ou ')'
 		bne	$t2,$t3,nextKey	
 		addi	$t1,$t1,1		
 		j 	checkByte		
@@ -295,7 +279,7 @@ getRegCode:	# recebe em $a3 o indicador do getValueAddr apenas para repassar par
 		addi	$sp,$sp,-4
 		sw	$ra,0($sp)
 		jal 	readNotNullByte	
-		#beq	$v1,10,errorFewParams		# se ler um '\n', ! poucos parametros !!!!!!!!!!!!!!!!OBS:ACHO QUE PODE RETIRAR COM A ADICAO DO $A3
+		beq	$v1,10,errorFewParams		# se ler um '\n', ! poucos parametros !!!!!!!!!!!!!!!!OBS:ACHO QUE PODE RETIRAR COM A ADICAO DO $A3
 		bne	$v1,'$',errorWrongParams	# registradores comecam com $
 		lbu	$t1,($s7)
 		bltu	$t1,48,errorNoSuchReg		# aqui lemos um caracter que nao existe nos registradores
@@ -312,26 +296,26 @@ keepNaNKeys:	la	$a0,regValues			# agr temos que achar o valor desse registrador
 		addi	$sp,$sp,4	
 		jr	$ra
 		
-assemblerR:	# desempilho a pilha e monto o codigo de instrucao tipo R em $v0: opcode(6bits) & rs(5bits) & rt(5bits) & rd(5bits) & shamt(5bits) & funct(6bits)
+assemblerR:	# desempilho a pilha - funct:5($sp) shamt(4) rd(3) rt(2) rs(1) opcode:0($sp) - e monto o codigo de instrucao tipo R em $v0
 		move	$t0,$zero
 		lb	$a0,0($sp)
 		add	$t0,$t0,$a0
 		sll	$t0,$t0,5
+		lb	$a0,1($sp)
+		add	$t0,$t0,$a0
+		sll	$t0,$t0,5
+		lb	$a0,2($sp)
+		add	$t0,$t0,$a0
+		sll	$t0,$t0,5
+		lb	$a0,3($sp)
+		add	$t0,$t0,$a0
+		sll	$t0,$t0,5
 		lb	$a0,4($sp)
 		add	$t0,$t0,$a0
-		sll	$t0,$t0,5
-		lb	$a0,8($sp)
-		add	$t0,$t0,$a0
-		sll	$t0,$t0,5
-		lb	$a0,12($sp)
-		add	$t0,$t0,$a0
-		sll	$t0,$t0,5
-		lb	$a0,16($sp)
-		add	$t0,$t0,$a0
 		sll	$t0,$t0,6
-		lb	$a0,20($sp)
+		lb	$a0,5($sp)
 		add	$t0,$t0,$a0
-		add 	$sp,$sp,24
+		add 	$sp,$sp,8
 		move	$v0,$t0
 		jr 	$ra	
 		
