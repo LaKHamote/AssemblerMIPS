@@ -8,7 +8,7 @@
          and    $t2     $s4,     $s5
       movn   $t3     $s6,     $s7
       mult   $t3     $s5   
-         or     $t5,     $s0,     $s5
+         or     $t5,     $s0,   $s5
       slt    $t6,     $s4     $s1
       nor    $t4,     $s3,     $s6
       add    $t0,     $s0    $s1
@@ -113,8 +113,7 @@ typeRA:		la	$a0,valuesRA
 		addi	$s6,$s6,4
 		j 	textSection
 
-typeRB:		addi	$s7,$s7,-1		# volto o ponteiro do arquivo para reler
-		la	$a0,valuesRB
+typeRB:		la	$a0,valuesRB
 		la	$a1,keysRB
 		li	$a2,1			# numero de values por key
 		li	$a3,' '
@@ -246,17 +245,15 @@ noColon:	jr	$ra
 		
 #!!!!!!!!! checar se os $t estao mantendo seus valores originais        
 getValueAddr:	# recebe $a0(array dos valores), $a1(array das chaves), $a2(num de valor por chave) e $a3(indicador do final da palavra)
-				# le a palavra atual e retorna, se achar, o ponteiro para o(s) valor(es) em $v0(+$a2) ou 0 se nao achar
-		move	$v0,$zero	      		# a principio assumo que nao achou e altero $v0 apenas se achar
-		move	$t7,$s7				# salvo o endereco que estou lendo para comparar do inicio para os proximos comandos da string
+		# le a palavra atual e retorna, se achar, o ponteiro para o(s) valor(es) em $v0(+$a2) ou 0 se nao achar
+		move	$t7,$s7				# salvo o endereco que estou lendo para comparar do inicio para os proximos instrucoes da string
 		move	$t0,$a0				# ponteiro para indice do array dos opcodes (Hexas)
-		move	$t1,$a1				# ponteiro para indice do char a ser lido da string de comandos
-checkByte:	lb	$t2,($t1)			# byte lido da string de comandos
+		move	$t1,$a1				# ponteiro para indice do char a ser lido da string de instrucoes
+checkByte:	lb	$t2,($t1)			# byte lido da string de instrucoes
 		lbu	$t3,($s7)			# byte lido do arq
 		addi	$s7,$s7,1
 		beq	$t3,' ',match			# SE achamos ' ', entao ja lemos palavra toda e temos um match
-		beq	$t3,10,match			# SE achamos ' ', entao ja lemos palavra toda e temos um match
-		beq	$t3,$a3,match			# OU se achamos nosso indicador - pode ser ',' ou ')'
+		beq	$t3,$a3,match			# OU se achamos nosso indicador -> ',' ou '\n' ou ')'
 		bne	$t2,$t3,nextKey	
 		addi	$t1,$t1,1		
 		j 	checkByte		
@@ -270,8 +267,10 @@ nextKey:	bne	$t2,',',findNextKey
 		j	checkByte
 match:		bne	$t2,',',nextKey			# por convencao as chaves terminam em ','. Entao garanto que li a chave toda para evitar palavras contidas: add esta em addi
 		move	$v0,$t0
-notFound:	jr 	$ra
-
+		jr 	$ra
+notFound:	move	$v0,$zero
+		move	$s7,$t7				# reseto o ponteiro do arq para comparar com outra string de instrucoes
+		jr 	$ra
 #!!! ainda nao ta prft, se tiver espaco entre reg e ',', ele nao consegue compilar	
 getRegCode:	# recebe em $a3 o indicador do getValueAddr apenas para repassar para ele
 			# le o registrador atual, se achar, e retorna o codigo em $v0 ou da erro por falta de parametros(registradores)
@@ -279,7 +278,7 @@ getRegCode:	# recebe em $a3 o indicador do getValueAddr apenas para repassar par
 		addi	$sp,$sp,-4
 		sw	$ra,0($sp)
 		jal 	readNotNullByte	
-		beq	$v1,10,errorFewParams		# se ler um '\n', ! poucos parametros !!!!!!!!!!!!!!!!OBS:ACHO QUE PODE RETIRAR COM A ADICAO DO $A3
+		#beq	$v1,10,errorFewParams		# se ler um '\n', ! poucos parametros !!!!!!!!!!!!!!!!OBS:ACHO QUE PODE RETIRAR COM A ADICAO DO $A3
 		bne	$v1,'$',errorWrongParams	# registradores comecam com $
 		lbu	$t1,($s7)
 		bltu	$t1,48,errorNoSuchReg		# aqui lemos um caracter que nao existe nos registradores
@@ -290,7 +289,7 @@ keepNaNKeys:	la	$a0,regValues			# agr temos que achar o valor desse registrador
 		li	$a2,1				# numero de values por key
 		#move	$a3,$t3
 		jal	getValueAddr			# pega o endereco relativo a chave passada
-		beq	$v0, $zero,errorNoSuchReg	# registrador inexistente
+		beq	$v0, $zero,errorFewParams	# registrador inexistente
 		lb	$v0,($v0)
 		lw	$ra,0($sp)
 		addi	$sp,$sp,4	
@@ -351,7 +350,7 @@ printErrorMsg:
 	keysRB:			.asciiz		"div,mult,"
 	valuesRB:		.byte		0x1a,0x18
 	errorMsg:		.asciiz 	"Comando nao reconhecido."
-	msgFewParams:		.asciiz 	"Too few operands."
+	msgFewParams:		.asciiz 	"Too few or incorrectly formatted operands."
 	msgManyParams:		 .asciiz 	"Too many operands."
 	msgWrongParams:	 	.asciiz		"Operand is of incorrect type. All registers start with $"
 	msgNoSuchReg:		.asciiz		"No register with this name"
