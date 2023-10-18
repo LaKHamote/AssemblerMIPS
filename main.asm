@@ -22,6 +22,7 @@
 
 		jal	readFile
 		la	$s7,fileWords 			# ponteiro para o texto
+		move	$s6,$zero			# contador das linhas da section .text
 		#jal 	printArq
 		jal 	consumeBlankLines
 		jal 	readByte
@@ -88,7 +89,7 @@ typeRA:		la	$a0,valuesRA
 
 		addi	$s7,$s7,-1
 		jal	readNotNullByte
-		bne	$v1,10,printErrorMsg	# muitos parametros
+		bne	$v1,10,errorManyParams	# muitos parametros
 # garanto que terminei de ler a linha toda sem achar mais registradores
 
 		addi	$sp,$sp,-24
@@ -104,6 +105,15 @@ typeRA:		la	$a0,valuesRA
 		move	$t6,$v0
 #pra cima, armazeno em $t6 o hexa montado pra instr tipo R		
 		
+		move	$a0,$s6
+		jal	printHexa
+		li	$a0,' '
+		jal	printChar
+		li	$a0,':'
+		jal	printChar
+		li	$a0,' '
+		jal	printChar
+		
 		move	$a0,$t6
 		jal	printHexa
 		li	$a0,10
@@ -111,6 +121,7 @@ typeRA:		la	$a0,valuesRA
 		
 		
 # pra cima, escrevo no arquivo a compilacao: PC: hexa
+		addi	$s6,$s6,4
 		j 	textSection
 
 typeRB:		addi	$s7,$s7,-1		# volto o ponteiro do arquivo para reler
@@ -131,7 +142,7 @@ typeRB:		addi	$s7,$s7,-1		# volto o ponteiro do arquivo para reler
 		
 		addi	$s7,$s7,-1
 		jal	readNotNullByte
-		bne	$v1,10,printErrorMsg	# muitos parametros
+		bne	$v1,10,errorManyParams	# muitos parametros
 		
 		addi	$sp,$sp,-24
 		sb	$s0,20($sp)	# funct
@@ -144,8 +155,17 @@ typeRB:		addi	$s7,$s7,-1		# volto o ponteiro do arquivo para reler
 
 		jal	assemblerR
 		move	$t6,$v0
-#pra cima, armazeno em $t6 o hexa montado pra instr tipo R		
-		
+#pra cima, armazeno em $t6 o hexa montado pra instr tipo R	
+
+		move	$a0,$s6
+		jal	printHexa
+		li	$a0,' '
+		jal	printChar
+		li	$a0,':'
+		jal	printChar
+		li	$a0,' '
+		jal	printChar
+				
 		move	$a0,$t6
 		jal	printHexa
 		li	$a0,10
@@ -153,6 +173,7 @@ typeRB:		addi	$s7,$s7,-1		# volto o ponteiro do arquivo para reler
 		
 		
 # pra cima, escrevo no arquivo a compilacao: PC: hexa
+		addi	$s6,$s6,4
 		j 	textSection
 typeRC:###...
 
@@ -193,6 +214,7 @@ readNotNullByte:# ler proxs Bytes (Char) ate achar um (!= ' ') e armazena em $v1
 		lbu	$v1,($s7)
 		addi	$s7,$s7,1
 		beq	$v1,' ',readNotNullByte
+		#beq	$v1,9,readNotNullByte
 		jr	$ra
 		
 printChar:	# mostrar na tela o conteudo de $a0 como char
@@ -211,16 +233,12 @@ printArq:	# mostrar na tela no o arquivo lido
 		syscall
 		jr	$ra
 
-printErrorMsg:	li	$v0,4
-		la	$a0,errorMsg
-		syscall
-		j	end
-
 consumeBlankLines: # consome todos os ' ' e '\n' seguidos
 		lbu	$t1,($s7)
 		addi	$s7,$s7,1
-		beq	$t1,' ',consumeBlankLines
-		beq	$t1,10,consumeBlankLines
+		beq	$t1,' ',consumeBlankLines	# ignorar spaces
+		#beq	$t1,9,consumeBlankLines		# ignorar tabs
+		beq	$t1,10,consumeBlankLines	# ignorar quebras de linha em linhas vazias
 		addi	$s7,$s7,-1			# volta em 1 o ponteiro do arq para lermos o char != '\n' depois
 		jr	$ra
 
@@ -228,6 +246,7 @@ consumeSpaces: # consome todos os ' '
 		lbu	$t1,($s7)
 		addi	$s7,$s7,1
 		beq	$t1,' ',consumeSpaces
+		#beq	$t1,9,consumeSpaces
 		addi	$s7,$s7,-1 			# volta em 1 o ponteiro do arq para lermos o char != ' ' depois
 		jr	$ra
 
@@ -276,10 +295,10 @@ getRegCode:	# recebe em $a3 o indicador do getValueAddr apenas para repassar par
 		addi	$sp,$sp,-4
 		sw	$ra,0($sp)
 		jal 	readNotNullByte	
-		#beq	$v1,10,printErrorMsg		# se ler um '\n', ! poucos parametros !!!!!!!!!!!!!!!!OBS:ACHO QUE PODE RETIRAR COM A ADICAO DO $A3
-		bne	$v1,'$',printErrorMsg		# registradores comecam com $
+		#beq	$v1,10,errorFewParams		# se ler um '\n', ! poucos parametros !!!!!!!!!!!!!!!!OBS:ACHO QUE PODE RETIRAR COM A ADICAO DO $A3
+		bne	$v1,'$',errorWrongParams	# registradores comecam com $
 		lbu	$t1,($s7)
-		bltu	$t1,48,printErrorMsg		# aqui lemos um caracter que nao existe nos registradores
+		bltu	$t1,48,errorNoSuchReg		# aqui lemos um caracter que nao existe nos registradores
 		la	$a1,regKeysNaN			# assumo que o registrador esta escrito com seu 'apelido':  $9 -> $t2
 		bgeu	$t1,58,keepNaNKeys		# aqui lemos um caracter nao numerico entao acertamos na assun��o acima
 		la	$a1,regKeysNum			# aqui lemos um caracter nao numerico entao erramos na assun��o
@@ -287,7 +306,7 @@ keepNaNKeys:	la	$a0,regValues			# agr temos que achar o valor desse registrador
 		li	$a2,1				# numero de values por key
 		#move	$a3,$t3
 		jal	getValueAddr			# pega o endereco relativo a chave passada
-		beq	$v0, $zero,printErrorMsg	# registrador inexistente
+		beq	$v0, $zero,errorNoSuchReg	# registrador inexistente
 		lb	$v0,($v0)
 		lw	$ra,0($sp)
 		addi	$sp,$sp,4	
@@ -316,17 +335,39 @@ assemblerR:	# desempilho a pilha e monto o codigo de instrucao tipo R em $v0: op
 		move	$v0,$t0
 		jr 	$ra	
 		
-	
-	
+errorFewParams:
+		la	$a0,msgFewParams
+		j 	printErrorMsg
+
+errorManyParams:
+		la	$a0,msgManyParams
+		j 	printErrorMsg
+
+errorWrongParams:
+		la	$a0,msgWrongParams
+		j 	printErrorMsg
+
+errorNoSuchReg:
+		la	$a0,msgNoSuchReg
+		j 	printErrorMsg
+
+printErrorMsg:	
+		li	$v0,4
+		syscall
+		j	end
 	
 .data
-	filePath: 	.asciiz 	"D:/example_saida.asm"
-	fileWords: 	.space  	1024
-	regKeysNum:	.asciiz		"0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,"
-	regKeysNaN:	.asciiz		"zero,at,v0,v1,a0,a1,a2,a3,t0,t1,t2,t3,t4,t5,t6,t7,s0,s1,s2,s3,s4,s5,s6,s7,t8,t9,k0,k1,gp,sp,fp,ra,"
-	regValues:	.byte		0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
-	keysRA:		.asciiz		"add,addu,and,movn,nor,or,slt,sltu,sub,subu,xor,"
-	valuesRA:	.byte		0x20,0x21,0x24,0xb,0x27,0x25,0x2a,0x2b,0x22,0x23,0x26	
-	keysRB:		.asciiz		"div,mult,"
-	valuesRB:	.byte		0x1a,0x18
-	errorMsg:	.asciiz 	"Comando nao reconhecido"
+	filePath: 		.asciiz 	"D:/example_saida.asm"
+	fileWords: 		.space  	1024
+	regKeysNum:		.asciiz		"0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,"
+	regKeysNaN:		.asciiz		"zero,at,v0,v1,a0,a1,a2,a3,t0,t1,t2,t3,t4,t5,t6,t7,s0,s1,s2,s3,s4,s5,s6,s7,t8,t9,k0,k1,gp,sp,fp,ra,"
+	regValues:		.byte		0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
+	keysRA:			.asciiz		"add,addu,and,movn,nor,or,slt,sltu,sub,subu,xor,"
+	valuesRA:		.byte		0x20,0x21,0x24,0xb,0x27,0x25,0x2a,0x2b,0x22,0x23,0x26	
+	keysRB:			.asciiz		"div,mult,"
+	valuesRB:		.byte		0x1a,0x18
+	errorMsg:		.asciiz 	"Comando nao reconhecido."
+	msgFewParams:		.asciiz 	"Too few operands."
+	msgManyParams:		 .asciiz 	"Too many operands."
+	msgWrongParams:	 	.asciiz		"Operand is of incorrect type. All registers start with $"
+	msgNoSuchReg:		.asciiz		"No register with this name"
