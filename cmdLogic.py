@@ -85,17 +85,20 @@ opcodesI = [
        ]},
 
        {"typeIC": [#parametros: rt, offset(rs)
-              "lb",    #  0x20        rs        rt             offset   
               "lw",    #  0x23        rs        rt             offset   
-              "sb",    #  0x28        rs        rt             offset   
               "sw",    #  0x2b        rs        rt             offset   
        ]},
 
-       {"typeID": [#parametros: rt, imm
+       {"typeID": [#parametros: rt, imm(rs)
+              "lb",    #  0x20        rs        rt              imm   
+              "sb",    #  0x28        rs        rt              imm
+       ]},
+
+       {"typeIE": [#parametros: rt, imm
               "lui",   #   0xf       00000      rt              imm   
        ]},
 
-       {"typeIE": [#parametros: rt, offset
+       {"typeIF": [#parametros: rt, offset
               "bgez",  #   0x1        rs        0x1             offset   
               "bgezal",#   0x1        rs       0x21             offset       
        ]},
