@@ -109,6 +109,10 @@ opcodesI = [
        # com 1 target
               #          6bits             26bits
 opcodeJ = [
-              "j",     #  0x2              target
+    
+       {"typeJA": [#parametros: target
+              "j",     #  0x2              target       
               "jal"    #  0x3              target  
+       ]},
+
 ]

@@ -3,27 +3,28 @@
 		#move	$a0,$v1
 		#jal 	printChar
 		#j	end
-                     movn  $t3     $s6,     $s7
+      movn  $t3     $s6,     $s7
         div         $t2,     $s1
-      addu   $t1,     $s2,     $s3
-      sltu   $t7,     $s6,     $s2 
-         and    $t2     $s4  $s6
-      movn   $t3     $s6,     $s7
+                  addu   $t1,     $s2,     $s3
+                  sltu   $t7,     $s6,     $s2 
+                     and    $t2     $s4  $s6
+                  movn   $t3     $s6,                                  $s7
       mult   $t3     $s5   
-         or     $t5,     $s0,     $s5
+         or     $t5,     $s0,                   $s5
 
-    slt    $t6,     $s4     $s1
-      nor    $t4,     $s3    $s2 
-      add    $t0,     $s0   $s4
-      sub    $t8,     $s7     $s3
-         subu   $t9,        $s6,     $s5
+                                       slt    $t6,     $s4     $s1
+                                                                           nor    $t4,     $s3    $s2 
+                                                                                                add    $t0,     $s0   $s4
+                                                                                                sub    $t8,     $s7     $s3
+                                                                              subu   $t9,        $s6,     $s5
+                                          xor    $t6,     $s5,     $s0 
+      div         $t2,     $s1 
       xor    $t6,     $s5,     $s0 
-      div         $t2,     $s1	
+	
         
       
 		jal	readFile
 		la	$s7,fileWords 			# ponteiro para o texto
-		move	$s6,$zero			# 'nosso pc' contador das linhas
 		#jal 	printArq
 		jal 	consumeBlankLines
 		jal 	readByte
@@ -38,6 +39,7 @@
 		bne	$v1,'a',printErrorMsg
 		jal	readNotNullByte
 		bne	$v1,10,printErrorMsg		# checo se depos de ler data nao ha nenhum char significativo
+		move	$s6,$zero			# 'nosso pc' contador da memoria de dados
 		j	dataSection
 		
 findText:	jal 	consumeBlankLines
@@ -52,6 +54,7 @@ maybeText:	bne	$v1,'t',printErrorMsg
 		bne	$v1,'t',printErrorMsg
 		jal	readNotNullByte
 		bne	$v1,10,printErrorMsg		# checo se depos de ler text nao ha nenhum char significativo
+		move	$s6,$zero			# 'nosso pc' contador da memoria de instrucoes
 		j	textSection	
 		
 dataSection:	# provavelmente a primeira coisa eh label -> NAME: .STORAGEFORMAT VALUE
@@ -66,6 +69,17 @@ textSection:	# provavelmente a primeira coisa eh cmd -> cmd $xx,$yy,$zz
 		lb	$t0,($s7)
 		beq	$t0,0,end
 # pra cima, temos a condicao de parada
+		jal 	checkIfIsLabel
+		beq	$v0,$zero,typeRA
+		
+		la	$a0,textLabelKeys
+		jal	storeLabel
+		la	$t0,textLabelValues
+		add	$t0,$t0,$v0
+		sb	$s6,($t0)
+		
+		jal 	consumeSpaces # !!!!!!!
+# pra cima vemos se temos uma Label na linha antes de tudo 
 		
 typeRA:		la	$a0,valuesRA
 		la	$a1,keysRA
@@ -211,7 +225,7 @@ typeRH:
 					
 	
 
-noInstr:
+noInstr:	jal	errorNoSuchOperator
 
 		
 end:		# parar o programa
@@ -296,13 +310,13 @@ checkEndFile:	bne	$v1,0,errorManyParams
 		addi	$s7,$s7,-1			# pra reler o 0 na condicao de parada do loop
 		jr 	$ra
 
-endInColon:	# ve se uma palavra termina em ':', retorna 1 caso Vdd e 0 Falso
+checkIfIsLabel:	# ve se uma palavra termina em ': ', retorna em $v0 1 caso Vdd e 0 Falso
 		move	$v0,$zero 			# assumo que nao termina em ':'
 		move 	$t7,$s7
-		lbu	$t0,($t7)
+findEnd:	lbu	$t0,($t7)
 		addi	$t7,$t7,1
-		bne	$t0,' ',endInColon
-		lb	$t0,-1($t7)
+		bne	$t0,' ',findEnd			# tecnicamente nao vai ler se estiver (label:instr), precisa de um espaco entre ':' e instr
+		lb	$t0,-2($t7)
 		bne	$t0,':',noColon
 		li	$v0,1
 noColon:	jr	$ra
@@ -347,7 +361,7 @@ getRegCode:	# recebe em $a3 o indicador do getValueAddr apenas para repassar par
 		#beq	$v1,10,errorFewParams		# se ler um '\n', ! poucos parametros !!!!!!!!!!!!!!!!OBS:ACHO QUE PODE RETIRAR COM A ADICAO DO $A3
 		bne	$v1,'$',errorWrongParams	# registradores comecam com $
 		lbu	$t1,($s7)
-		bltu	$t1,48,errorNoSuchReg		# aqui lemos um caracter que nao existe nos registradores
+		bltu	$t1,48,errorNoSuchOperator	# aqui lemos um caracter que nao existe nos registradores
 		la	$a1,regKeysNaN			# assumo que o registrador esta escrito com seu 'apelido':  $9 -> $t2
 		bgeu	$t1,58,keepNaNKeys		# aqui lemos um caracter nao numerico entao acertamos na assuncao acima
 		la	$a1,regKeysNum			# aqui lemos um caracter nao numerico entao erramos na assunï¿½cao
@@ -383,6 +397,26 @@ assemblerR:	# desempilho a pilha - funct:5($sp) shamt(4) rd(3) rt(2) rs(1) opcod
 		add 	$sp,$sp,8
 		move	$v0,$t0
 		jr 	$ra	
+
+storeLabel:	# escreve na memoria uma label separada por vírgula
+		move	$t0,$a0			# ponteiro para onde escrever as labels
+		move	$t1,$zero
+checkStart:	lb	$t2,($t0)		# checo se uma label já foi escrita
+		beq	$t2,0,storeByte
+		addi	$t0,$t0,1
+		bne	$t2,',',checkStart
+		addi	$t1,$t1,1		# cada vírgula lida representa uma label lida
+		j	checkStart
+storeByte:	lb	$t2,($s7)		# Byte lido do arquivo
+		addi 	$s7,$s7,1
+		beq	$t2,':',endWord
+		sb	$t2,($t0)
+		addi 	$t0,$t0,1
+		j 	storeByte
+endWord:	li	$t2,','			# indicador de fim de key na memoria
+		sb	$t2,($t0)	
+		move	$v0,$t1
+		jr 	$ra
 		
 errorFewParams:
 		la	$a0,msgFewParams
@@ -396,18 +430,28 @@ errorWrongParams:
 		la	$a0,msgWrongParams
 		j 	printErrorMsg
 
-errorNoSuchReg:
-		la	$a0,msgNoSuchReg
+errorNoSuchOperator:
+		la	$a0,msgNoOperator
 		j 	printErrorMsg
 
 printErrorMsg:	
+		move	$t0,$a0		# salvo a msg a ser mostrada
+		move	$a0,$s6
+		jal	printHexa
+		li	$a0,' '
+		jal	printChar
+		li	$a0,':'
+		jal	printChar
+		li	$a0,' '
+		jal	printChar
+		move	$a0,$t0
 		li	$v0,4
 		syscall
 		j	end
 
 .data
 	filePath: 		.asciiz 	"D:/example_saida.asm"
-	fileWords: 		.space  	4096
+	fileWords: 		.space  	1024
 	regKeysNum:		.asciiz		"0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,"
 	regKeysNaN:		.asciiz		"zero,at,v0,v1,a0,a1,a2,a3,t0,t1,t2,t3,t4,t5,t6,t7,s0,s1,s2,s3,s4,s5,s6,s7,t8,t9,k0,k1,gp,sp,fp,ra,"
 	regValues:		.byte		0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
@@ -428,11 +472,13 @@ printErrorMsg:
 	keysRH:			.asciiz		"mfhi,mflo,"
 	valuesRH:		.byte		0x1a,0x18	# funct
 	
-	dataLabelKeys:		.space		128 # aqui escrevo as labels lidas
-	labelValues:		.space		128 # aqui escrevo as valores delas
+	dataLabelKeys:		.space		256 # aqui escrevo as labels dos dodos lidas
+	dataLabelValues:	.space		128 # pc do inicio da lista de .word
+	textLabelKeys:		.space		256 # aqui escrevo as labels do text lidas
+	textLabelValues:	.space		128 # pc de cada label
 	
 	errorMsg:		.asciiz 	"Comando nao reconhecido."
 	msgFewParams:		.asciiz 	"Too few or incorrectly formatted operands."
 	msgManyParams:		 .asciiz 	"Too many operands."
 	msgWrongParams:	 	.asciiz		"Operand is of incorrect type. All registers start with $"
-	msgNoSuchReg:		.asciiz		"No register with this name"
+	msgNoOperator:		.asciiz		"Not a recognized operator"
