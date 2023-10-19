@@ -3,26 +3,27 @@
 		#move	$a0,$v1
 		#jal 	printChar
 		#j	end
+                     movn  $t3     $s6,     $s7
+        div         $t2,     $s1
       addu   $t1,     $s2,     $s3
-      sltu   $t7,     $s6,     $s2
-         and    $t2     $s4,     $s5
+      sltu   $t7,     $s6,     $s2 
+         and    $t2     $s4  $s6
       movn   $t3     $s6,     $s7
       mult   $t3     $s5   
-         or     $t5,     $s0,   $s5
-      slt    $t6,     $s4     $s1
-      nor    $t4,     $s3,     $s6
-      add    $t0,     $s0    $s1
+         or     $t5,     $s0,     $s5
+
+    slt    $t6,     $s4     $s1
+      nor    $t4,     $s3    $s2 
+      add    $t0,     $s0   $s4
       sub    $t8,     $s7     $s3
          subu   $t9,        $s6,     $s5
-      xor    $t6,     $s5,     $s0
-      div    $t2     $s1     
-
-
-		
-
+      xor    $t6,     $s5,     $s0 
+      div         $t2,     $s1	
+        
+      
 		jal	readFile
 		la	$s7,fileWords 			# ponteiro para o texto
-		move	$s6,$zero			# contador das linhas da section .text
+		move	$s6,$zero			# 'nosso pc' contador das linhas
 		#jal 	printArq
 		jal 	consumeBlankLines
 		jal 	readByte
@@ -85,9 +86,7 @@ typeRA:		la	$a0,valuesRA
 		li	$a3,10
 		jal 	getRegCode		# pegar cod do rt
 		sb	$v0,2($sp) 		# empilhar rt
-		addi	$s7,$s7,-1
-		jal	readNotNullByte
-		bne	$v1,10,errorManyParams
+		jal	checkManyParams
 		sb	$zero,4($sp) 		# empilhar shamt
 		sb	$zero,0($sp)		# empilhar opcode
 		jal	assemblerR
@@ -129,9 +128,7 @@ typeRB:		la	$a0,valuesRB
 		li	$a3,10
 		jal 	getRegCode
 		sb	$v0,2($sp)		# empilhar rt
-		addi	$s7,$s7,-1
-		jal	readNotNullByte
-		bne	$v1,10,errorManyParams
+		jal	checkManyParams
 		sb	$zero,4($sp) 		# empilhar shamt
 		sb	$zero,3($sp) 		# empilhar rd
 		sb	$zero,0($sp)		# empilhar opcode
@@ -157,12 +154,66 @@ typeRB:		la	$a0,valuesRB
 # pra cima, escrevo no arquivo a compilacao: PC: hexa
 		addi	$s6,$s6,4
 		j 	textSection
-typeRC:###...
+		
+		
+typeRC:		la	$a0,valuesRC
+		la	$a1,keysRC
+		li	$a2,1			# numero de values por key
+		li	$a3,' '
+		jal	getValueAddr		# pega o endereco relativo a chave passada
+		beq	$v0,$zero,typeRD
+		# Achei a instr, agora so empilhar na pilha: funct:5($sp) shamt(4) rd(3) rt(2) rs(1) opcode:0($sp)
+		addi	$sp,$sp,-8
+		lb	$t0,($v0)
+		sb	$t0,5($sp)		# empilhar funct
+		li	$a3,10
+		jal 	getRegCode
+		sb	$v0,1($sp)		# empilhar rs
+		jal	checkManyParams
+		sb	$zero,4($sp) 		# empilhar shamt
+		sb	$zero,3($sp) 		# empilhar rd
+		sb	$zero,2($sp) 		# empilhar rt
+		sb	$zero,0($sp)		# empilhar opcode
+		jal	assemblerR
+		move	$t6,$v0
+#pra cima, armazeno em $t6 o hexa montado pra instr tipo R	
 
+		move	$a0,$s6
+		jal	printHexa
+		li	$a0,' '
+		jal	printChar
+		li	$a0,':'
+		jal	printChar
+		li	$a0,' '
+		jal	printChar
+				
+		move	$a0,$t6
+		jal	printHexa
+		li	$a0,10
+		jal	printChar
+		
+		
+# pra cima, escrevo no arquivo a compilacao: PC: hexa
+		addi	$s6,$s6,4
+		j 	textSection
+		
+		
+
+typeRD:		
+
+typeRE:
+
+typeRF:
+
+typeRG:
+
+typeRH:
 					
 	
 
+noInstr:
 
+		
 end:		# parar o programa
    		li 	$v0, 10
   		syscall	
@@ -232,6 +283,19 @@ consumeSpaces: # consome todos os ' '
 		addi	$s7,$s7,-1 			# volta em 1 o ponteiro do arq para lermos o char != ' ' depois
 		jr	$ra
 
+checkManyParams: # indica erro se tiver muitos parametros numa linha
+		addi	$s7,$s7,-1			# pra tamb�m checar o indicador do final da palavra
+		addi	$sp,$sp,-4
+		sw	$ra,0($sp)	
+		jal	readNotNullByte
+		lw	$ra,0($sp)
+		addi	$sp,$sp,4
+		bne	$v1,10,checkEndFile
+		jr	$ra
+checkEndFile:	bne	$v1,0,errorManyParams
+		addi	$s7,$s7,-1			# pra reler o 0 na condicao de parada do loop
+		jr 	$ra
+
 endInColon:	# ve se uma palavra termina em ':', retorna 1 caso Vdd e 0 Falso
 		move	$v0,$zero 			# assumo que nao termina em ':'
 		move 	$t7,$s7
@@ -247,13 +311,15 @@ noColon:	jr	$ra
 getValueAddr:	# recebe $a0(array dos valores), $a1(array das chaves), $a2(num de valor por chave) e $a3(indicador do final da palavra)
 		# le a palavra atual e retorna, se achar, o ponteiro para o(s) valor(es) em $v0(+$a2) ou 0 se nao achar
 		move	$t7,$s7				# salvo o endereco que estou lendo para comparar do inicio para os proximos instrucoes da string
-		move	$t0,$a0				# ponteiro para indice do array dos opcodes (Hexas)
+		move	$t0,$a0				# ponteiro para indice do array dos Hexas
 		move	$t1,$a1				# ponteiro para indice do char a ser lido da string de instrucoes
 checkByte:	lb	$t2,($t1)			# byte lido da string de instrucoes
 		lbu	$t3,($s7)			# byte lido do arq
 		addi	$s7,$s7,1
 		beq	$t3,' ',match			# SE achamos ' ', entao ja lemos palavra toda e temos um match
+		#beq	$v1,9,readNotNullByte           # SE achamos '\t' , entao ja lemos palavra toda e temos um match
 		beq	$t3,$a3,match			# OU se achamos nosso indicador -> ',' ou '\n' ou ')'
+		beq	$t3,0,match			# OU se achamos o 0 indicando fim de arquivo
 		bne	$t2,$t3,nextKey	
 		addi	$t1,$t1,1		
 		j 	checkByte		
@@ -273,7 +339,7 @@ notFound:	move	$v0,$zero
 		jr 	$ra
 #!!! ainda nao ta prft, se tiver espaco entre reg e ',', ele nao consegue compilar	
 getRegCode:	# recebe em $a3 o indicador do getValueAddr apenas para repassar para ele
-			# le o registrador atual, se achar, e retorna o codigo em $v0 ou da erro por falta de parametros(registradores)
+		# le o registrador atual, se achar, e retorna o codigo em $v0 ou da erro por falta de parametros(registradores)
 		#move	$t3,$a3
 		addi	$sp,$sp,-4
 		sw	$ra,0($sp)
@@ -283,8 +349,8 @@ getRegCode:	# recebe em $a3 o indicador do getValueAddr apenas para repassar par
 		lbu	$t1,($s7)
 		bltu	$t1,48,errorNoSuchReg		# aqui lemos um caracter que nao existe nos registradores
 		la	$a1,regKeysNaN			# assumo que o registrador esta escrito com seu 'apelido':  $9 -> $t2
-		bgeu	$t1,58,keepNaNKeys		# aqui lemos um caracter nao numerico entao acertamos na assun��o acima
-		la	$a1,regKeysNum			# aqui lemos um caracter nao numerico entao erramos na assun��o
+		bgeu	$t1,58,keepNaNKeys		# aqui lemos um caracter nao numerico entao acertamos na assuncao acima
+		la	$a1,regKeysNum			# aqui lemos um caracter nao numerico entao erramos na assun�cao
 keepNaNKeys:	la	$a0,regValues			# agr temos que achar o valor desse registrador
 		li	$a2,1				# numero de values por key
 		#move	$a3,$t3
@@ -338,10 +404,10 @@ printErrorMsg:
 		li	$v0,4
 		syscall
 		j	end
-	
+
 .data
 	filePath: 		.asciiz 	"D:/example_saida.asm"
-	fileWords: 		.space  	1024
+	fileWords: 		.space  	4096
 	regKeysNum:		.asciiz		"0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,"
 	regKeysNaN:		.asciiz		"zero,at,v0,v1,a0,a1,a2,a3,t0,t1,t2,t3,t4,t5,t6,t7,s0,s1,s2,s3,s4,s5,s6,s7,t8,t9,k0,k1,gp,sp,fp,ra,"
 	regValues:		.byte		0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
@@ -361,6 +427,9 @@ printErrorMsg:
 	valuesRG:		.byte		0x7		# funct
 	keysRH:			.asciiz		"mfhi,mflo,"
 	valuesRH:		.byte		0x1a,0x18	# funct
+	
+	dataLabelKeys:		.space		128 # aqui escrevo as labels lidas
+	labelValues:		.space		128 # aqui escrevo as valores delas
 	
 	errorMsg:		.asciiz 	"Comando nao reconhecido."
 	msgFewParams:		.asciiz 	"Too few or incorrectly formatted operands."
