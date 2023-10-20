@@ -78,7 +78,7 @@ textSection:	# provavelmente a primeira coisa eh cmd -> cmd $xx,$yy,$zz
 		add	$t0,$t0,$v0
 		sb	$s6,($t0)
 		
-		jal 	consumeSpaces # !!!!!!!
+		jal 	consumeBlankLines # !!!!!!!
 # pra cima vemos se temos uma Label na linha antes de tudo 
 		
 typeRA:		la	$a0,valuesRA
@@ -221,9 +221,7 @@ typeRF:
 
 typeRG:
 
-typeRH:
-					
-	
+typeRH:	
 
 noInstr:	jal	errorNoSuchOperator
 
@@ -294,7 +292,7 @@ consumeSpaces: # consome todos os ' '
 		addi	$s7,$s7,1
 		beq	$t1,' ',consumeSpaces
 		#beq	$t1,9,consumeSpaces
-		addi	$s7,$s7,-1 			# volta em 1 o ponteiro do arq para lermos o char != ' ' depois
+		addi	$s7,$s7,-1 			# volta em 1 o ponteiro do arq para lermos o char != ' '
 		jr	$ra
 
 checkManyParams: # indica erro se tiver muitos parametros numa linha
@@ -315,9 +313,8 @@ checkIfIsLabel:	# ve se uma palavra termina em ': ', retorna em $v0 1 caso Vdd e
 		move 	$t7,$s7
 findEnd:	lbu	$t0,($t7)
 		addi	$t7,$t7,1
-		bne	$t0,' ',findEnd			# tecnicamente nao vai ler se estiver (label:instr), precisa de um espaco entre ':' e instr
-		lb	$t0,-2($t7)
-		bne	$t0,':',noColon
+		beq	$t0,' ',noColon			# se achei ' ', já li a palavra sem achar ':'
+		bne	$t0,':',findEnd			# como ainda nao achei ':' ou ' ', volto a procurar
 		li	$v0,1
 noColon:	jr	$ra
 		
@@ -471,6 +468,9 @@ printErrorMsg:
 	valuesRG:		.byte		0x7		# funct
 	keysRH:			.asciiz		"mfhi,mflo,"
 	valuesRH:		.byte		0x1a,0x18	# funct
+	
+	keysJA:			.asciiz		"j,jal"
+	valuesJA:		.byte		0x2,0x3
 	
 	dataLabelKeys:		.space		256 # aqui escrevo as labels dos dodos lidas
 	dataLabelValues:	.space		128 # pc do inicio da lista de .word
