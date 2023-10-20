@@ -289,6 +289,7 @@ typeRE:		la	$a0,valuesRE
 		addi	$s6,$s6,4
 		j 	textSection
 
+typeRF:
 
 typeRG:
 
