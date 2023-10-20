@@ -3,26 +3,27 @@
 		#move	$a0,$v1
 		#jal 	printChar
 		#j	end
+                     movn  $t3     $s6,     $s7
+        div         $t2,     $s1
+      addu   $t1,     $s2,     $s3
+      sltu   $t7,     $s6,     $s2 
+         and    $t2     $s4  $s6
+      movn   $t3     $s6,     $s7
+      mult   $t3     $s5   
+         or     $t5,     $s0,     $s5
 
-     movn  $t3     $s6,     $s7
-	div         $t2,     $s1
-	addu   $t1,     $s2,     $s3
-   sltu   $t7,     $s6,     $s2 
-	and $t2, $s4, $s6
-   movn   $t3     $s6,   $s7
-minhalabelgigante: mult   $t3     $s5   
-      or     $t5,    $s0, $s5
- 	slt    $t6,     $s4     $s1
-	     nor    $t4,     $s3    $s2 
-	add    $t0,     $s0   $s4
-pea:	sub    $t8,     $s7     $s3
-	subu   $t9,        $s6,     $s5
-   xor    $t6,     $s5, $s0           
-	div  $t2,     $s1 
-	j minhalabelgigante 
-
+    slt    $t6,     $s4     $s1
+      nor    $t4,     $s3    $s2 
+      add    $t0,     $s0   $s4
+      sub    $t8,     $s7     $s3
+         subu   $t9,        $s6,     $s5
+      xor    $t6,     $s5,     $s0 
+      div         $t2,     $s1	
+        sll	$t2, $t3, 10
+      		
 		jal	readFile
 		la	$s7,fileWords 			# ponteiro para o texto
+		move	$s6,$zero			# 'nosso pc' contador das linhas
 		#jal 	printArq
 		jal 	consumeBlankLines
 		jal 	readByte
@@ -37,7 +38,6 @@ pea:	sub    $t8,     $s7     $s3
 		bne	$v1,'a',printErrorMsg
 		jal	readNotNullByte
 		bne	$v1,10,printErrorMsg		# checo se depos de ler data nao ha nenhum char significativo
-		move	$s6,$zero			# 'nosso pc' contador da memoria de dados
 		j	dataSection
 		
 findText:	jal 	consumeBlankLines
@@ -52,7 +52,6 @@ maybeText:	bne	$v1,'t',printErrorMsg
 		bne	$v1,'t',printErrorMsg
 		jal	readNotNullByte
 		bne	$v1,10,printErrorMsg		# checo se depos de ler text nao ha nenhum char significativo
-		li	$s6,0x400000			# 'nosso pc' contador da memoria de instrucoes
 		j	textSection	
 		
 dataSection:	# provavelmente a primeira coisa eh label -> NAME: .STORAGEFORMAT VALUE
@@ -67,17 +66,6 @@ textSection:	# provavelmente a primeira coisa eh cmd -> cmd $xx,$yy,$zz
 		lb	$t0,($s7)
 		beq	$t0,0,end
 # pra cima, temos a condicao de parada
-		jal 	checkIfIsLabel
-		beq	$v0,$zero,typeRA
-		
-		la	$a0,textLabelKeys
-		jal	storeLabel
-		la	$t0,textLabelValues
-		add	$t0,$t0,$v0
-		sw	$s6,($t0)
-		
-		jal 	consumeBlankLines 
-# pra cima vemos se temos uma Label na linha antes de tudo 
 		
 typeRA:		la	$a0,valuesRA
 		la	$a1,keysRA
@@ -211,40 +199,75 @@ typeRC:		la	$a0,valuesRC
 		
 		
 
-typeRD:		
-
-typeRE:
-
-typeRF:
-
-typeRG:
-
-typeRH:	
-
-
-
-
-typeJA:		la	$a0,valuesJA
-		la	$a1,keysJA
-		li	$a2,1			# numero de values por key
+typeRD:		la	$a0,valuesRD
+		la	$a1,keysRD
+		li	$a2,2			# numero de values por key
 		li	$a3,' '
 		jal	getValueAddr		# pega o endereco relativo a chave passada
-		beq	$v0,$zero,noInstr
-		# Achei a instr, agora so montar: opcode(6bits) & addr(26 bits)
-		lb	$s0,($v0)
-		sll	$s0,$s0,26
-		
-		la	$a0,textLabelValues
-		la	$a1,textLabelKeys
-		li	$a2,4				# cada valor está em Words (4 Bytes) 
+		beq	$v0,$zero,typeRE
+		# Achei a instr, agora so empilhar na pilha: funct:5($sp) shamt(4) rd(3) rt(2) rs(1) opcode:0($sp)
+		addi	$sp,$sp,-8		# desloco 8 Bytes, mas nunca uso 6 ou 7($sp)
+		lb	$t0,($v0)		# pego o opcode do cmd lido
+		sb	$t0,0($sp)		# empilhar opcode
+		lb	$t0,($v0)		# pego o funct do cmd lido
+		sb	$t0,5($sp)		# empilhar funct
+		li	$a3,','
+		jal 	getRegCode		# pegar cod do rd
+		sb	$v0,3($sp) 		# empilhar rd
+		li	$a3,','
+		jal 	getRegCode		# pegar cod do rs
+		sb	$v0,1($sp)		# empilhar rs
 		li	$a3,10
-		jal	getValueAddr			# pega o endereco relativo a chave passada
-		beq	$v0,$zero,errorNoSuchLabel	# label inexistente
-		lw	$t0,($v0)
-		add	$t6,$s0,$t0
+		jal 	getRegCode		# pegar cod do rt
+		sb	$v0,2($sp) 		# empilhar rt
 		jal	checkManyParams
+		sb	$zero,4($sp) 		# empilhar shamt
+		jal	assemblerR
+		move	$t6,$v0
+#pra cima, armazeno em $t6 o hexa montado pra instr tipo R	
+		move	$a0,$s6
+		jal	printHexa
+		li	$a0,' '
+		jal	printChar
+		li	$a0,':'
+		jal	printChar
+		li	$a0,' '
+		jal	printChar
+				
+		move	$a0,$t6
+		jal	printHexa
+		li	$a0,10
+		jal	printChar
 		
 		
+# pra cima, escrevo no arquivo a compilacao: PC: hexa
+		addi	$s6,$s6,4
+		j 	textSection
+
+typeRE:		la	$a0,valuesRE
+		la	$a1,keysRE
+		li	$a2,2			# numero de values por key
+		li	$a3,' '
+		jal	getValueAddr		# pega o endereco relativo a chave passada
+		beq	$v0,$zero,typeRC
+		# Achei a instr, agora so empilhar na pilha: funct:5($sp) shamt(4) rd(3) rt(2) rs(1) opcode:0($sp)
+		addi	$sp,$sp,-8		# desloco 8 Bytes, mas nunca uso 6 ou 7($sp)
+		lb	$t0,($v0)		# pego o opcode do cmd lido
+		sb	$t0,0($sp)		# empilhar opcode
+		lb	$t0,($v0)		# pego o funct do cmd lido
+		sb	$t0,5($sp)		# empilhar funct
+		li	$a3,','
+		jal 	getRegCode
+		sb	$v0,3($sp)		# empilhar rd
+		li	$a3,','
+		jal 	getRegCode
+		sb	$v0,1($sp)		# empilhar rs
+		li	$a3,10
+		jal	checkManyParams
+		sb	$zero,4($sp) 		# empilhar shamt
+		sb	$zero,2($sp) 		# empilhar rt
+		jal	assemblerR
+		move	$t6,$v0
 #pra cima, armazeno em $t6 o hexa montado pra instr tipo R	
 
 		move	$a0,$s6
@@ -266,7 +289,14 @@ typeJA:		la	$a0,valuesJA
 		addi	$s6,$s6,4
 		j 	textSection
 
-noInstr:	jal	errorNoSuchOperator
+
+typeRG:
+
+typeRH:
+					
+	
+
+noInstr:
 
 		
 end:		# parar o programa
@@ -302,7 +332,7 @@ readNotNullByte:# ler proxs Bytes (Char) ate achar um (!= ' ') e armazena em $v1
 		lbu	$v1,($s7)
 		addi	$s7,$s7,1
 		beq	$v1,' ',readNotNullByte
-		beq	$v1,9,readNotNullByte
+		#beq	$v1,9,readNotNullByte
 		jr	$ra
 		
 printChar:	# mostrar na tela o conteudo de $a0 como char
@@ -325,7 +355,7 @@ consumeBlankLines: # consome todos os ' ' e '\n' seguidos
 		lbu	$t1,($s7)
 		addi	$s7,$s7,1
 		beq	$t1,' ',consumeBlankLines	# ignorar spaces
-		beq	$t1,9,consumeBlankLines		# ignorar tabs
+		#beq	$t1,9,consumeBlankLines		# ignorar tabs
 		beq	$t1,10,consumeBlankLines	# ignorar quebras de linha em linhas vazias
 		addi	$s7,$s7,-1			# volta em 1 o ponteiro do arq para lermos o char != '\n' depois
 		jr	$ra
@@ -334,8 +364,8 @@ consumeSpaces: # consome todos os ' '
 		lbu	$t1,($s7)
 		addi	$s7,$s7,1
 		beq	$t1,' ',consumeSpaces
-		beq	$t1,9,consumeSpaces
-		addi	$s7,$s7,-1 			# volta em 1 o ponteiro do arq para lermos o char != ' '
+		#beq	$t1,9,consumeSpaces
+		addi	$s7,$s7,-1 			# volta em 1 o ponteiro do arq para lermos o char != ' ' depois
 		jr	$ra
 
 checkManyParams: # indica erro se tiver muitos parametros numa linha
@@ -351,13 +381,14 @@ checkEndFile:	bne	$v1,0,errorManyParams
 		addi	$s7,$s7,-1			# pra reler o 0 na condicao de parada do loop
 		jr 	$ra
 
-checkIfIsLabel:	# ve se uma palavra termina em ': ', retorna em $v0 1 caso Vdd e 0 Falso
+endInColon:	# ve se uma palavra termina em ':', retorna 1 caso Vdd e 0 Falso
 		move	$v0,$zero 			# assumo que nao termina em ':'
 		move 	$t7,$s7
-findEnd:	lbu	$t0,($t7)
+		lbu	$t0,($t7)
 		addi	$t7,$t7,1
-		beq	$t0,' ',noColon			# se achei ' ', já li a palavra sem achar ':'
-		bne	$t0,':',findEnd			# como ainda nao achei ':' ou ' ', volto a procurar
+		bne	$t0,' ',endInColon
+		lb	$t0,-1($t7)
+		bne	$t0,':',noColon
 		li	$v0,1
 noColon:	jr	$ra
 		
@@ -401,7 +432,7 @@ getRegCode:	# recebe em $a3 o indicador do getValueAddr apenas para repassar par
 		#beq	$v1,10,errorFewParams		# se ler um '\n', ! poucos parametros !!!!!!!!!!!!!!!!OBS:ACHO QUE PODE RETIRAR COM A ADICAO DO $A3
 		bne	$v1,'$',errorWrongParams	# registradores comecam com $
 		lbu	$t1,($s7)
-		bltu	$t1,48,errorNoSuchOperator	# aqui lemos um caracter que nao existe nos registradores
+		bltu	$t1,48,errorNoSuchReg		# aqui lemos um caracter que nao existe nos registradores
 		la	$a1,regKeysNaN			# assumo que o registrador esta escrito com seu 'apelido':  $9 -> $t2
 		bgeu	$t1,58,keepNaNKeys		# aqui lemos um caracter nao numerico entao acertamos na assuncao acima
 		la	$a1,regKeysNum			# aqui lemos um caracter nao numerico entao erramos na assunï¿½cao
@@ -416,8 +447,9 @@ keepNaNKeys:	la	$a0,regValues			# agr temos que achar o valor desse registrador
 		jr	$ra
 		
 assemblerR:	# desempilho a pilha - funct:5($sp) shamt(4) rd(3) rt(2) rs(1) opcode:0($sp) - e monto o codigo de instrucao tipo R em $v0
+		move	$t0,$zero
 		lb	$a0,0($sp)
-		move	$t0,$a0
+		add	$t0,$t0,$a0
 		sll	$t0,$t0,5
 		lb	$a0,1($sp)
 		add	$t0,$t0,$a0
@@ -436,26 +468,6 @@ assemblerR:	# desempilho a pilha - funct:5($sp) shamt(4) rd(3) rt(2) rs(1) opcod
 		add 	$sp,$sp,8
 		move	$v0,$t0
 		jr 	$ra	
-
-storeLabel:	# escreve na memoria uma label separada por vírgula
-		move	$t0,$a0			# ponteiro para onde escrever as labels
-		move	$t1,$zero
-checkStart:	lb	$t2,($t0)		# checo se uma label já foi escrita
-		beq	$t2,0,storeByte
-		addi	$t0,$t0,1
-		bne	$t2,',',checkStart
-		addi	$t1,$t1,4		# cada vírgula lida representa uma label lida
-		j	checkStart
-storeByte:	lb	$t2,($s7)		# Byte lido do arquivo
-		addi 	$s7,$s7,1
-		beq	$t2,':',endWord
-		sb	$t2,($t0)
-		addi 	$t0,$t0,1
-		j 	storeByte
-endWord:	li	$t2,','			# indicador de fim de key na memoria
-		sb	$t2,($t0)	
-		move	$v0,$t1
-		jr 	$ra
 		
 errorFewParams:
 		la	$a0,msgFewParams
@@ -469,41 +481,23 @@ errorWrongParams:
 		la	$a0,msgWrongParams
 		j 	printErrorMsg
 
-errorNoSuchOperator:
-		la	$a0,msgNoOperator
-		j 	printErrorMsg
-
-errorNoSuchLabel:
-		la	$a0,msgNoLabel
+errorNoSuchReg:
+		la	$a0,msgNoSuchReg
 		j 	printErrorMsg
 
 printErrorMsg:	
-		move	$t0,$a0		# salvo a msg a ser mostrada
-		move	$a0,$s6
-		jal	printHexa
-		li	$a0,' '
-		jal	printChar
-		li	$a0,':'
-		jal	printChar
-		li	$a0,' '
-		jal	printChar
-		move	$a0,$t0
 		li	$v0,4
 		syscall
 		j	end
 
 .data
-	fileWords: 		.space  	1024
-	dataLabelKeys:		.space		256 # aqui escrevo as labels dos dodos lidas
-	dataLabelValues:	.space		128 # pc do inicio da lista de .word
-	textLabelKeys:		.space		256 # aqui escrevo as labels do text lidas
-	textLabelValues:	.space		128 # pc de cada label
-	filePath: 		.asciiz 	"D:/example_saida.asm"
+	filePath: 		.asciiz 	"E:/example_saida.asm"
+	fileWords: 		.space  	4096
 	regKeysNum:		.asciiz		"0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,"
 	regKeysNaN:		.asciiz		"zero,at,v0,v1,a0,a1,a2,a3,t0,t1,t2,t3,t4,t5,t6,t7,s0,s1,s2,s3,s4,s5,s6,s7,t8,t9,k0,k1,gp,sp,fp,ra,"
 	regValues:		.byte		0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
 	keysRA:			.asciiz		"add,addu,and,movn,nor,or,slt,sltu,sub,subu,xor,"
-	valuesRA:		.byte		0x20,0x21,0x24,0xb,0x27,0x25,0x2a,0x2b,0x22,0x23,0x26	# funct
+	valuesRA:		.byte		20,0x21,0x24,0xb,0x27,0x25,0x2a,0x2b,0x22,0x23,0x26	# funct
 	keysRB:			.asciiz		"div,mult,"
 	valuesRB:		.byte		0x1a,0x18 	# funct
 	keysRC:			.asciiz		"jr,"
@@ -519,13 +513,11 @@ printErrorMsg:
 	keysRH:			.asciiz		"mfhi,mflo,"
 	valuesRH:		.byte		0x1a,0x18	# funct
 	
-	keysJA:			.asciiz		"j,jal,"
-	valuesJA:		.byte		0x2,0x3
-	
+	dataLabelKeys:		.space		128 # aqui escrevo as labels lidas
+	labelValues:		.space		128 # aqui escrevo as valores delas
 	
 	errorMsg:		.asciiz 	"Comando nao reconhecido."
 	msgFewParams:		.asciiz 	"Too few or incorrectly formatted operands."
 	msgManyParams:		 .asciiz 	"Too many operands."
 	msgWrongParams:	 	.asciiz		"Operand is of incorrect type. All registers start with $"
-	msgNoOperator:		.asciiz		"Not a recognized operator"
-	msgNoLabel:		.asciiz		"Label not found in file"
+	msgNoSuchReg:		.asciiz		"No register with this name"
