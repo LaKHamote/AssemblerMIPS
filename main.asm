@@ -10,8 +10,7 @@
     sltu   $t7,     $s6,     $s2 
 and $t2, $s4, $s6
         movn   $t3     $s6,   $s7
-        minhalabelgigante: 
-        mult   $t3     $s5   
+        minhalabelgigante: mult   $t3     $s5   
         or     $t5,    $s0, $s5
         slt    $t6,     $s4     $s1
 nor    $t4,     $s3    $s2 
@@ -19,9 +18,10 @@ add    $t0,     $s0   $s4
 pea:      sub    $t8,     $s7     $s3
 asadsd:subu   $t9,        $s6,     $s5
 xor    $t6,     $s5, $s0           
-dddddddddd:div  $t2,     $s1 
+dddddddddd: div  $t2,     $s1 
 div $t2  $s2 
-
+j    ncaisjj
+ncaisjj: div  $t2,     $s1
 		jal	readFile
 		la	$s7,fileWords 			# ponteiro para o texto
 		#jal 	printArq
@@ -237,14 +237,15 @@ typeJA:		la	$a0,valuesJA
 		# Achei a instr, agora so montar: opcode(6bits) & addr(26 bits)
 		lb	$s0,($v0)
 		sll	$s0,$s0,26
-		
+		jal 	consumeSpaces
 		la	$a0,textLabelValues
 		la	$a1,textLabelKeys
-		li	$a2,4				# cada valor está em Words (4 Bytes) 
+		li	$a2,4				# cada valor estï¿½ em Words (4 Bytes) 
 		li	$a3,10
 		jal	getValueAddr
 		beq	$v0,$zero,errorNoSuchLabel
 		lw	$t0,($v0)
+		srl	$t0,$t0,2			#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! nao sei pq tem q dividir por 4
 		add	$t6,$s0,$t0
 		jal	checkManyParams
 		
@@ -306,7 +307,7 @@ readNotNullByte:# ler proxs Bytes (Char) ate achar um (!= ' ') e armazena em $v1
 		lbu	$v1,($s7)
 		addi	$s7,$s7,1
 		beq	$v1,' ',readNotNullByte
-		beq	$v1,9,readNotNullByte
+		#beq	$v1,9,readNotNullByte
 		jr	$ra
 		
 printChar:	# mostrar na tela o conteudo de $a0 como char
@@ -329,7 +330,7 @@ consumeBlankLines: # consome todos os ' ' e '\n' seguidos
 		lbu	$t1,($s7)
 		addi	$s7,$s7,1
 		beq	$t1,' ',consumeBlankLines	# ignorar spaces
-		beq	$t1,9,consumeBlankLines		# ignorar tabs
+		#beq	$t1,9,consumeBlankLines		# ignorar tabs
 		beq	$t1,10,consumeBlankLines	# ignorar quebras de linha em linhas vazias
 		addi	$s7,$s7,-1			# volta em 1 o ponteiro do arq para lermos o char != '\n' depois
 		jr	$ra
@@ -338,7 +339,7 @@ consumeSpaces: # consome todos os ' '
 		lbu	$t1,($s7)
 		addi	$s7,$s7,1
 		beq	$t1,' ',consumeSpaces
-		beq	$t1,9,consumeSpaces
+		#beq	$t1,9,consumeSpaces
 		addi	$s7,$s7,-1 			# volta em 1 o ponteiro do arq para lermos o char != ' '
 		jr	$ra
 
@@ -457,14 +458,14 @@ done:		lw	$ra,0($sp)
 
 
 
-storeLabel:	# escreve na memoria uma label separada por vírgula
+storeLabel:	# escreve na memoria uma label separada por vï¿½rgula
 		move	$t0,$a0			# ponteiro para onde escrever as labels
 		move	$t1,$zero		# indice de onde estou colocando a label
-checkStart:	lb	$t2,($t0)		# checo se uma label já foi escrita
+checkStart:	lb	$t2,($t0)		# checo se uma label jï¿½ foi escrita
 		beq	$t2,0,storeByte
 		addi	$t0,$t0,1
 		bne	$t2,',',checkStart
-		addi	$t1,$t1,4		# cada vírgula lida representa uma label lida
+		addi	$t1,$t1,4		# cada vï¿½rgula lida representa uma label lida
 		j	checkStart
 storeByte:	lb	$t2,($s7)		# Byte lido do arquivo
 		addi 	$s7,$s7,1
@@ -478,14 +479,14 @@ endWord:	li	$t2,','			# indicador de fim de key na memoria
 		jr 	$ra
 		
 
-checkIfIsLabel:	# ve se uma palavra termina em ': ', retorna em $v0 1 caso Vdd e 0 Falso e retorna em $v1 o último byte lido
+checkIfIsLabel:	# ve se uma palavra termina em ': ', retorna em $v0 1 caso Vdd e 0 Falso e retorna em $v1 o ï¿½ltimo byte lido
 		move	$v0,$zero 			# assumo que nao termina em ':'
 		move 	$t7,$s7
 findEnd:	lbu	$t0,($t7)
 		addi	$t7,$t7,1
-		beq	$t0,0,noColon			# se achei 0, já li a palavra sem achar ':'
-		beq	$t0,10,noColon			# se achei '\n', já li a palavra sem achar ':'
-		beq	$t0,' ',noColon			# se achei ' ', já li a palavra sem achar ':'
+		beq	$t0,0,noColon			# se achei 0, jï¿½ li a palavra sem achar ':'
+		beq	$t0,10,noColon			# se achei '\n', jï¿½ li a palavra sem achar ':'
+		beq	$t0,' ',noColon			# se achei ' ', jï¿½ li a palavra sem achar ':'
 		bne	$t0,':',findEnd			# como ainda nao achei ':' ou ' ', volto a procurar
 		li	$v0,1
 noColon:	jr	$ra
