@@ -4,22 +4,23 @@
 		#jal 	printChar
 		#j	end
 
-     movn  $t3     $s6,     $s7
-	div         $t2,     $s1
-	addu   $t1,     $s2,     $s3
-   sltu   $t7,     $s6,     $s2 
-	and $t2, $s4, $s6
-   movn   $t3     $s6,   $s7
-minhalabelgigante: mult   $t3     $s5   
-      or     $t5,    $s0, $s5
- 	slt    $t6,     $s4     $s1
-	     nor    $t4,     $s3    $s2 
-	add    $t0,     $s0   $s4
-pea:	sub    $t8,     $s7     $s3
-	subu   $t9,        $s6,     $s5
-   xor    $t6,     $s5, $s0           
-	div  $t2,     $s1 
-	j minhalabelgigante 
+    movn  $t3     $s6,     $s7
+      div         $t2,     $s1
+    addu   $t1,     $s2,     $s3
+    sltu   $t7,     $s6,     $s2 
+and $t2, $s4, $s6
+        movn   $t3     $s6,   $s7
+        minhalabelgigante: 
+        mult   $t3     $s5   
+        or     $t5,    $s0, $s5
+        slt    $t6,     $s4     $s1
+nor    $t4,     $s3    $s2 
+add    $t0,     $s0   $s4
+pea:      sub    $t8,     $s7     $s3
+asadsd:subu   $t9,        $s6,     $s5
+xor    $t6,     $s5, $s0           
+dddddddddd:div  $t2,     $s1 
+div $t2  $s2 
 
 		jal	readFile
 		la	$s7,fileWords 			# ponteiro para o texto
@@ -52,7 +53,7 @@ maybeText:	bne	$v1,'t',printErrorMsg
 		bne	$v1,'t',printErrorMsg
 		jal	readNotNullByte
 		bne	$v1,10,printErrorMsg		# checo se depos de ler text nao ha nenhum char significativo
-		li	$s6,0x400000			# 'nosso pc' contador da memoria de instrucoes
+		move	$s6,$zero			# 'nosso pc' contador da memoria de instrucoes
 		j	textSection	
 		
 dataSection:	# provavelmente a primeira coisa eh label -> NAME: .STORAGEFORMAT VALUE
@@ -60,8 +61,14 @@ dataSection:	# provavelmente a primeira coisa eh label -> NAME: .STORAGEFORMAT V
 		
 		jal	findText
 		j	end
-
-textSection:	# provavelmente a primeira coisa eh cmd -> cmd $xx,$yy,$zz                                              
+		
+		
+textSection:	
+		move	$s5,$s7				# salvo o ponteiro para o inicio do .text
+		jal 	storeAllLabels
+		move	$s7,$s5				# restoro o pornteito para reler o .text de novo focado nas instrucoes	
+		move	$s6,$zero			# restauro o contador de instr
+textLine:	                   
 		jal	consumeBlankLines
 		
 		lb	$t0,($s7)
@@ -69,15 +76,12 @@ textSection:	# provavelmente a primeira coisa eh cmd -> cmd $xx,$yy,$zz
 # pra cima, temos a condicao de parada
 		jal 	checkIfIsLabel
 		beq	$v0,$zero,typeRA
-		
-		la	$a0,textLabelKeys
-		jal	storeLabel
-		la	$t0,textLabelValues
-		add	$t0,$t0,$v0
-		sw	$s6,($t0)
+skipLabel:	lb	$t0,($s7)
+		addi 	$s7,$s7,1
+		bne	$t0,':',skipLabel
 		
 		jal 	consumeBlankLines 
-# pra cima vemos se temos uma Label na linha antes de tudo 
+# pra cima vemos se temos uma Label na linha antes de tudo e pulamos ela
 		
 typeRA:		la	$a0,valuesRA
 		la	$a1,keysRA
@@ -122,7 +126,7 @@ typeRA:		la	$a0,valuesRA
 		
 # pra cima, escrevo no arquivo a compilacao: PC: hexa
 		addi	$s6,$s6,4
-		j 	textSection
+		j 	textLine
 
 typeRB:		la	$a0,valuesRB
 		la	$a1,keysRB
@@ -165,7 +169,7 @@ typeRB:		la	$a0,valuesRB
 		
 # pra cima, escrevo no arquivo a compilacao: PC: hexa
 		addi	$s6,$s6,4
-		j 	textSection
+		j 	textLine
 		
 		
 typeRC:		la	$a0,valuesRC
@@ -207,7 +211,7 @@ typeRC:		la	$a0,valuesRC
 		
 # pra cima, escrevo no arquivo a compilacao: PC: hexa
 		addi	$s6,$s6,4
-		j 	textSection
+		j 	textLine
 		
 		
 
@@ -238,8 +242,8 @@ typeJA:		la	$a0,valuesJA
 		la	$a1,textLabelKeys
 		li	$a2,4				# cada valor está em Words (4 Bytes) 
 		li	$a3,10
-		jal	getValueAddr			# pega o endereco relativo a chave passada
-		beq	$v0,$zero,errorNoSuchLabel	# label inexistente
+		jal	getValueAddr
+		beq	$v0,$zero,errorNoSuchLabel
 		lw	$t0,($v0)
 		add	$t6,$s0,$t0
 		jal	checkManyParams
@@ -264,7 +268,7 @@ typeJA:		la	$a0,valuesJA
 		
 # pra cima, escrevo no arquivo a compilacao: PC: hexa
 		addi	$s6,$s6,4
-		j 	textSection
+		j 	textLine
 
 noInstr:	jal	errorNoSuchOperator
 
@@ -350,16 +354,7 @@ checkManyParams: # indica erro se tiver muitos parametros numa linha
 checkEndFile:	bne	$v1,0,errorManyParams
 		addi	$s7,$s7,-1			# pra reler o 0 na condicao de parada do loop
 		jr 	$ra
-
-checkIfIsLabel:	# ve se uma palavra termina em ': ', retorna em $v0 1 caso Vdd e 0 Falso
-		move	$v0,$zero 			# assumo que nao termina em ':'
-		move 	$t7,$s7
-findEnd:	lbu	$t0,($t7)
-		addi	$t7,$t7,1
-		beq	$t0,' ',noColon			# se achei ' ', já li a palavra sem achar ':'
-		bne	$t0,':',findEnd			# como ainda nao achei ':' ou ' ', volto a procurar
-		li	$v0,1
-noColon:	jr	$ra
+	
 		
 #!!!!!!!!! checar se os $t estao mantendo seus valores originais        
 getValueAddr:	# recebe $a0(array dos valores), $a1(array das chaves), $a2(num de valor por chave) e $a3(indicador do final da palavra)
@@ -371,7 +366,7 @@ checkByte:	lb	$t2,($t1)			# byte lido da string de instrucoes
 		lbu	$t3,($s7)			# byte lido do arq
 		addi	$s7,$s7,1
 		beq	$t3,' ',match			# SE achamos ' ', entao ja lemos palavra toda e temos um match
-		#beq	$v1,9,readNotNullByte           # SE achamos '\t' , entao ja lemos palavra toda e temos um match
+		#beq	$v1,9,match          		# SE achamos '\t' , entao ja lemos palavra toda e temos um match
 		beq	$t3,$a3,match			# OU se achamos nosso indicador -> ',' ou '\n' ou ')'
 		beq	$t3,0,match			# OU se achamos o 0 indicando fim de arquivo
 		bne	$t2,$t3,nextKey	
@@ -437,9 +432,34 @@ assemblerR:	# desempilho a pilha - funct:5($sp) shamt(4) rd(3) rt(2) rs(1) opcod
 		move	$v0,$t0
 		jr 	$ra	
 
+
+storeAllLabels:	
+		addi	$sp,$sp,-4
+		sw	$ra,0($sp)
+checkLine:	jal	consumeBlankLines
+		jal 	checkIfIsLabel
+		beq	$v0,$zero,skipLine
+		la	$a0,textLabelKeys
+		jal	storeLabel
+		la	$t0,textLabelValues
+		add	$t0,$t0,$v0
+		sw	$s6,($t0)
+		jal	consumeBlankLines   	# serve para evitar erro na contagem(pc) de linhas apenas com label
+skipLine:	lb	$t0,($s7)
+		addi 	$s7,$s7,1
+		beq	$t0,0,done		# terminei de armazenar as labels
+		bne	$t0,10,skipLine	
+		addi	$s6,$s6,4
+		j	checkLine
+done:		lw	$ra,0($sp)
+		addi	$sp,$sp,4
+		jr	$ra
+
+
+
 storeLabel:	# escreve na memoria uma label separada por vírgula
 		move	$t0,$a0			# ponteiro para onde escrever as labels
-		move	$t1,$zero
+		move	$t1,$zero		# indice de onde estou colocando a label
 checkStart:	lb	$t2,($t0)		# checo se uma label já foi escrita
 		beq	$t2,0,storeByte
 		addi	$t0,$t0,1
@@ -456,6 +476,20 @@ endWord:	li	$t2,','			# indicador de fim de key na memoria
 		sb	$t2,($t0)	
 		move	$v0,$t1
 		jr 	$ra
+		
+
+checkIfIsLabel:	# ve se uma palavra termina em ': ', retorna em $v0 1 caso Vdd e 0 Falso e retorna em $v1 o último byte lido
+		move	$v0,$zero 			# assumo que nao termina em ':'
+		move 	$t7,$s7
+findEnd:	lbu	$t0,($t7)
+		addi	$t7,$t7,1
+		beq	$t0,0,noColon			# se achei 0, já li a palavra sem achar ':'
+		beq	$t0,10,noColon			# se achei '\n', já li a palavra sem achar ':'
+		beq	$t0,' ',noColon			# se achei ' ', já li a palavra sem achar ':'
+		bne	$t0,':',findEnd			# como ainda nao achei ':' ou ' ', volto a procurar
+		li	$v0,1
+noColon:	jr	$ra
+
 		
 errorFewParams:
 		la	$a0,msgFewParams
