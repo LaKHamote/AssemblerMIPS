@@ -23,6 +23,9 @@ div $t2  $s2
 j    ncaisjj
  div  $t2,     $s1
 beq $t1,$t1  ncaisjj
+div  $t2,     $s1
+div  $t2,     $s1
+div  $t2,     $s1
 ncaisjj:
 
 
@@ -234,6 +237,53 @@ typeRH:
 
 
 
+typeIB:		la	$a0,valuesIB
+		la	$a1,keysIB
+		li	$a2,1			# numero de values por key
+		li	$a3,' '
+		jal	getValueAddr		# pega o endereco relativo a chave passada
+		beq	$v0,$zero,typeJA
+		# Achei a instr, agora so empilhar na pilha: addr:4-7($sp) rt(2) rs(1) opcode:0($sp)
+		addi	$sp,$sp,-8		# desloco 8 Bytes e nunca uso 3($sp)
+		lb	$t0,($v0)
+		sb	$t0,0($sp)		# empilhar opcode
+		li	$a3,','
+		jal 	getRegCode
+		sb	$v0,1($sp)		# empilhar rs
+		li	$a3,','
+		jal 	getRegCode
+		sb	$v0,2($sp) 		# empilhar rt
+		jal 	getLabelPC
+		subu	$t0,$v0,$s6
+		addi	$t0,$t0,-4
+		srl	$t0,$t0,2		#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! nao sei pq tem q dividir por 4, mas funciona
+		sw	$t0,4($sp)		# empilhar addr
+		jal	checkManyParams
+		jal	assemblerI
+		move	$t6,$v0
+		
+		
+#pra cima, armazeno em $t6 o hexa montado pra instr tipo R	
+
+		move	$a0,$s6
+		jal	printHexa
+		li	$a0,' '
+		jal	printChar
+		li	$a0,':'
+		jal	printChar
+		li	$a0,' '
+		jal	printChar
+				
+		move	$a0,$t6
+		jal	printHexa
+		li	$a0,10
+		jal	printChar
+		
+		
+# pra cima, escrevo no arquivo a compilacao: PC: hexa
+		addi	$s6,$s6,4
+		j 	textLine
+
 
 typeJA:		la	$a0,valuesJA
 		la	$a1,keysJA
@@ -244,15 +294,8 @@ typeJA:		la	$a0,valuesJA
 		# Achei a instr, agora so montar: opcode(6bits) & addr(26 bits)
 		lb	$s0,($v0)
 		sll	$s0,$s0,26
-		jal 	consumeSpaces
-		la	$a0,textLabelValues
-		la	$a1,textLabelKeys
-		li	$a2,4				# cada valor esta em Words (4 Bytes) 
-		li	$a3,10
-		jal	getValueAddr
-		beq	$v0,$zero,errorNoSuchLabel
-		lw	$t0,($v0)
-		srl	$t0,$t0,2			#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! nao sei pq tem q dividir por 4, mas funciona
+		jal 	getLabelPC
+		srl	$t0,$v0,2			#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! nao sei pq tem q dividir por 4, mas funciona
 		add	$t6,$s0,$t0
 		jal	checkManyParams
 		
@@ -408,7 +451,7 @@ getRegCode:	# recebe em $a3 o indicador do getValueAddr apenas para repassar par
 		sw	$ra,0($sp)
 		jal 	readNotNullByte	
 		#beq	$v1,10,errorFewParams		# se ler um '\n', ! poucos parametros !!!!!!!!!!!!!!!!OBS:ACHO QUE PODE RETIRAR COM A ADICAO DO $A3
-		bne	$v1,'$',errorWrongParams	# registradores comecam com $
+		bne	$v1,'$',errorWrongParam	# registradores comecam com $
 		lbu	$t1,($s7)
 		bltu	$t1,48,errorNoSuchOperator	# aqui lemos um caracter que nao existe nos registradores
 		la	$a1,regKeysNaN			# assumo que o registrador esta escrito com seu 'apelido':  $9 -> $t2
@@ -423,6 +466,23 @@ keepNaNKeys:	la	$a0,regValues			# agr temos que achar o valor desse registrador
 		lw	$ra,0($sp)
 		addi	$sp,$sp,4	
 		jr	$ra
+		
+getLabelPC:	
+		addi	$sp,$sp,-4
+		sw	$ra,0($sp)
+		jal 	consumeSpaces
+		lb	$t0,($s7)
+		beq	$t0,'$',errorWrongParam
+		la	$a0,textLabelValues
+		la	$a1,textLabelKeys
+		li	$a2,4				# cada valor esta em Words (4 Bytes) 
+		li	$a3,10
+		jal	getValueAddr
+		beq	$v0,$zero,errorNoSuchLabel
+		lw	$v0,($v0)
+		lw	$ra,0($sp)
+		addi	$sp,$sp,4
+		jr 	$ra	
 		
 assemblerR:	# desempilho a pilha - funct:5($sp) shamt(4) rd(3) rt(2) rs(1) opcode:0($sp) - e monto o codigo de instrucao tipo R em $v0
 		lb	$a0,0($sp)
@@ -441,6 +501,23 @@ assemblerR:	# desempilho a pilha - funct:5($sp) shamt(4) rd(3) rt(2) rs(1) opcod
 		add	$t0,$t0,$a0
 		sll	$t0,$t0,6
 		lb	$a0,5($sp)
+		add	$t0,$t0,$a0
+		add 	$sp,$sp,8
+		move	$v0,$t0
+		jr 	$ra	
+		
+
+assemblerI:	# desempilho a pilha - addr:3($sp) rt(2) rs(1) opcode:0($sp) - e monto o codigo de instrucao tipo I em $v0
+		lb	$a0,0($sp)
+		move	$t0,$a0
+		sll	$t0,$t0,5
+		lb	$a0,1($sp)
+		add	$t0,$t0,$a0
+		sll	$t0,$t0,5
+		lb	$a0,2($sp)
+		add	$t0,$t0,$a0
+		sll	$t0,$t0,16
+		lw	$a0,4($sp)
 		add	$t0,$t0,$a0
 		add 	$sp,$sp,8
 		move	$v0,$t0
@@ -528,7 +605,7 @@ errorManyParams:
 		la	$a0,msgManyParams
 		j 	printErrorMsg
 
-errorWrongParams:
+errorWrongParam:
 		la	$a0,msgWrongParams
 		j 	printErrorMsg
 
@@ -599,7 +676,7 @@ printErrorMsg:
 	errorMsg:		.asciiz 	"Comando nao reconhecido."
 	msgFewParams:		.asciiz 	"Too few or incorrectly formatted operands."
 	msgManyParams:		 .asciiz 	"Too many operands."
-	msgWrongParams:	 	.asciiz		"Operand is of incorrect type. All registers start with $"
+	msgWrongParams:	 	.asciiz		"Operand is of incorrect type."
 	msgNoOperator:		.asciiz		"Not a recognized operator"
 	msgNoLabel:		.asciiz		"Label not found in file"
 	msgSameLabel:		.asciiz		"Label already defined in file"
