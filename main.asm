@@ -21,7 +21,11 @@ xor    $t6,     $s5, $s0
 dddddddddd: div  $t2,     $s1 
 div $t2  $s2 
 j    ncaisjj
-ncaisjj: div  $t2,     $s1
+ div  $t2,     $s1
+beq $t1,$t1  ncaisjj
+ncaisjj:
+
+
 		jal	readFile
 		la	$s7,fileWords 			# ponteiro para o texto
 		#jal 	printArq
@@ -80,7 +84,10 @@ skipLabel:	lb	$t0,($s7)
 		addi 	$s7,$s7,1
 		bne	$t0,':',skipLabel
 		
-		jal 	consumeBlankLines 
+		jal 	consumeBlankLines
+		 
+		lb	$t0,($s7)
+		beq	$t0,0,end
 # pra cima vemos se temos uma Label na linha antes de tudo e pulamos ela
 		
 typeRA:		la	$a0,valuesRA
@@ -240,12 +247,12 @@ typeJA:		la	$a0,valuesJA
 		jal 	consumeSpaces
 		la	$a0,textLabelValues
 		la	$a1,textLabelKeys
-		li	$a2,4				# cada valor estï¿½ em Words (4 Bytes) 
+		li	$a2,4				# cada valor esta em Words (4 Bytes) 
 		li	$a3,10
 		jal	getValueAddr
 		beq	$v0,$zero,errorNoSuchLabel
 		lw	$t0,($v0)
-		srl	$t0,$t0,2			#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! nao sei pq tem q dividir por 4
+		srl	$t0,$t0,2			#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! nao sei pq tem q dividir por 4, mas funciona
 		add	$t6,$s0,$t0
 		jal	checkManyParams
 		
@@ -314,7 +321,13 @@ printChar:	# mostrar na tela o conteudo de $a0 como char
 		li	$v0,11
 		syscall	
 		jr	$ra
-		
+
+printInt:	# mostrar na tela o conteudo de $a0 como int
+		li	$v0,1
+		syscall	
+		jr	$ra
+				
+						
 printHexa:	# mostrar na tela o conteudo de $a0 como hexadecimal
 		li	$v0,34
 		syscall	
@@ -440,6 +453,21 @@ storeAllLabels:
 checkLine:	jal	consumeBlankLines
 		jal 	checkIfIsLabel
 		beq	$v0,$zero,skipLine
+		# ver se a label é repetida antes de armazenar ou invoco erro
+		la	$a0,textLabelValues
+		la	$a1,textLabelKeys
+		move	$a2,$zero			# nao me importo em pegar o endereco
+		li	$a3,':'
+		jal	getValueAddr
+		bne	$v0,$zero,errorSameLabel
+		#ver no dataLabel tbm
+		la	$a0,dataLabelValues
+		la	$a1,dataLabelKeys
+		move	$a2,$zero			# nao me importo em pegar o endereco
+		li	$a3,':'
+		jal	getValueAddr
+		bne	$v0,$zero,errorSameLabel
+		#
 		la	$a0,textLabelKeys
 		jal	storeLabel
 		la	$t0,textLabelValues
@@ -484,9 +512,9 @@ checkIfIsLabel:	# ve se uma palavra termina em ': ', retorna em $v0 1 caso Vdd e
 		move 	$t7,$s7
 findEnd:	lbu	$t0,($t7)
 		addi	$t7,$t7,1
-		beq	$t0,0,noColon			# se achei 0, jï¿½ li a palavra sem achar ':'
-		beq	$t0,10,noColon			# se achei '\n', jï¿½ li a palavra sem achar ':'
-		beq	$t0,' ',noColon			# se achei ' ', jï¿½ li a palavra sem achar ':'
+		beq	$t0,0,noColon			# se achei 0, ja li a palavra sem achar ':'
+		beq	$t0,10,noColon			# se achei '\n', ja li a palavra sem achar ':'
+		beq	$t0,' ',noColon			# se achei ' ', ja li a palavra sem achar ':'
 		bne	$t0,':',findEnd			# como ainda nao achei ':' ou ' ', volto a procurar
 		li	$v0,1
 noColon:	jr	$ra
@@ -511,11 +539,15 @@ errorNoSuchOperator:
 errorNoSuchLabel:
 		la	$a0,msgNoLabel
 		j 	printErrorMsg
+		
+errorSameLabel:
+		la	$a0,msgSameLabel
+		j 	printErrorMsg
 
 printErrorMsg:	
 		move	$t0,$a0		# salvo a msg a ser mostrada
-		move	$a0,$s6
-		jal	printHexa
+		srl	$a0,$s6,2
+		jal	printInt
 		li	$a0,' '
 		jal	printChar
 		li	$a0,':'
@@ -548,11 +580,17 @@ printErrorMsg:
 	keysRE:			.asciiz		"clo,"
 	valuesRE:		.byte		0x1c,0x21	# (opcode,funct)
 	keysRF:			.asciiz		"sll,sra,srl,"
-	valuesRF:		.byte		0,0x3,0x2	# funct
+	valuesRF:		.byte		0x0,0x3,0x2	# funct
 	keysRG:			.asciiz		"srav,"
 	valuesRG:		.byte		0x7		# funct
 	keysRH:			.asciiz		"mfhi,mflo,"
 	valuesRH:		.byte		0x1a,0x18	# funct
+	
+	
+	keysIB:			.asciiz		"beq,bne,"
+	valuesIB:		.byte		0x4,0x5		# opcode
+	
+	
 	
 	keysJA:			.asciiz		"j,jal,"
 	valuesJA:		.byte		0x2,0x3
@@ -564,3 +602,4 @@ printErrorMsg:
 	msgWrongParams:	 	.asciiz		"Operand is of incorrect type. All registers start with $"
 	msgNoOperator:		.asciiz		"Not a recognized operator"
 	msgNoLabel:		.asciiz		"Label not found in file"
+	msgSameLabel:		.asciiz		"Label already defined in file"
