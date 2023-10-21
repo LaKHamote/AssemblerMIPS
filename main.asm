@@ -4,29 +4,31 @@
 		#jal 	printChar
 		#j	end
 
-    movn  $t3     $s6,     $s7
+a:    movn  $0     $1,     $s7
       div         $t2,     $s1
-    addu   $t1,     $s2,     $s3
+    addu   $t1,     $3,     $s3
     sltu   $t7,     $s6,     $s2 
 and $t2, $s4, $s6
-        movn   $t3     $s6,   $s7
+        movn   $zero     $s6,   $s7
         minhalabelgigante: mult   $t3     $s5   
-        or     $t5,    $s0, $s5
-        slt    $t6,     $s4     $s1
-nor    $t4,     $s3    $s2 
-add    $t0,     $s0   $s4
-pea:      sub    $t8,     $s7     $s3
+        or     $4,    $s0, $s5
+        slt    $20,     $s4     $s1
+nor    $t4,     $24    $s2 
+bgez  $7,  ncaisjj
+add    $t0,     $s0   $26
+pea:      sub    $31,     $s7     $s3
 asadsd:subu   $t9,        $s6,     $s5
 xor    $t6,     $s5, $s0           
 dddddddddd: div  $t2,     $s1 
 div $t2  $s2 
 j    ncaisjj
  div  $t2,     $s1
-beq $t1,$t1  ncaisjj
+beq $t1,$t1 ncaisjj
 div  $t2,     $s1
 div  $t2,     $s1
 div  $t2,     $s1
-ncaisjj:
+ncaisjj: 
+
 
 
 		jal	readFile
@@ -235,14 +237,14 @@ typeRG:
 
 typeRH:	
 
-
+typeIA:
 
 typeIB:		la	$a0,valuesIB
 		la	$a1,keysIB
 		li	$a2,1			# numero de values por key
 		li	$a3,' '
 		jal	getValueAddr		# pega o endereco relativo a chave passada
-		beq	$v0,$zero,typeJA
+		beq	$v0,$zero,typeIC
 		# Achei a instr, agora so empilhar na pilha: addr:4-7($sp) rt(2) rs(1) opcode:0($sp)
 		addi	$sp,$sp,-8		# desloco 8 Bytes e nunca uso 3($sp)
 		lb	$t0,($v0)
@@ -253,11 +255,119 @@ typeIB:		la	$a0,valuesIB
 		li	$a3,','
 		jal 	getRegCode
 		sb	$v0,2($sp) 		# empilhar rt
-		jal 	getLabelPC
+		
+		la	$a0,textLabelValues
+		la	$a1,textLabelKeys
+		li	$a3,10
+		jal 	getLabelCode
 		subu	$t0,$v0,$s6
 		addi	$t0,$t0,-4
 		srl	$t0,$t0,2		#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! nao sei pq tem q dividir por 4, mas funciona
 		sw	$t0,4($sp)		# empilhar addr
+		
+		jal	checkManyParams
+		jal	assemblerI
+		move	$t6,$v0
+		
+		
+#pra cima, armazeno em $t6 o hexa montado pra instr tipo R	
+
+		move	$a0,$s6
+		jal	printHexa
+		li	$a0,' '
+		jal	printChar
+		li	$a0,':'
+		jal	printChar
+		li	$a0,' '
+		jal	printChar
+				
+		move	$a0,$t6
+		jal	printHexa
+		li	$a0,10
+		jal	printChar
+		
+		
+# pra cima, escrevo no arquivo a compilacao: PC: hexa
+		addi	$s6,$s6,4
+		j 	textLine
+		
+typeIC:		la	$a0,valuesIC
+		la	$a1,keysIC
+		li	$a2,1			# numero de values por key
+		li	$a3,' '
+		jal	getValueAddr		# pega o endereco relativo a chave passada
+		beq	$v0,$zero,typeID
+		# Achei a instr, agora so empilhar na pilha: addr:4-7($sp) rt(2) rs(1) opcode:0($sp)
+		addi	$sp,$sp,-8		# desloco 8 Bytes e nunca uso 3($sp)
+		lb	$t0,($v0)
+		sb	$t0,0($sp)		# empilhar opcode
+		li	$a3,','
+		jal 	getRegCode
+		sb	$v0,2($sp)		# empilhar rt
+		la	$a0,textLabelValues
+		la	$a1,textLabelKeys
+		li	$a3,'('
+		jal 	getLabelCode
+		#srl	$t0,$t0,2		#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! nao sei pq tem q dividir por 4, mas funciona
+		sw	$v0,4($sp)		# empilhar addr
+		li	$a3,')'
+		jal 	getRegCode
+		sb	$v0,1($sp) 		# empilhar rs
+		addi	$s7,$s7,1		# quero pular a verificacao do ')'
+		jal	checkManyParams
+		jal	assemblerI
+		move	$t6,$v0
+		
+		
+#pra cima, armazeno em $t6 o hexa montado pra instr tipo R	
+
+		move	$a0,$s6
+		jal	printHexa
+		li	$a0,' '
+		jal	printChar
+		li	$a0,':'
+		jal	printChar
+		li	$a0,' '
+		jal	printChar
+				
+		move	$a0,$t6
+		jal	printHexa
+		li	$a0,10
+		jal	printChar
+		
+		
+# pra cima, escrevo no arquivo a compilacao: PC: hexa
+		addi	$s6,$s6,4
+		j 	textLine
+typeID:
+
+typeIE:
+
+typeIF:		la	$a0,valuesIF
+		la	$a1,keysIF
+		li	$a2,2			# numero de values por key
+		li	$a3,' '
+		jal	getValueAddr		# pega o endereco relativo a chave passada
+		beq	$v0,$zero,typeJA
+		# Achei a instr, agora so empilhar na pilha: addr:4-7($sp) rt(2) rs(1) opcode:0($sp)
+		addi	$sp,$sp,-8		# desloco 8 Bytes e nunca uso 3($sp)
+		lb	$t0,($v0)
+		sb	$t0,0($sp)		# empilhar opcode
+		lb	$t0,1($v0)
+		sb	$t0,2($sp)		# empilhar rt
+		li	$a3,','
+		jal 	getRegCode
+		sb	$v0,1($sp)		# empilhar rs
+		
+		la	$a0,textLabelValues
+		la	$a1,textLabelKeys
+		li	$a3,10
+		jal 	getLabelCode
+		subu	$t0,$v0,$s6
+		addi	$t0,$t0,-4
+		srl	$t0,$t0,2		#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! nao sei pq tem q dividir por 4, mas funciona
+		sw	$t0,4($sp)		# empilhar addr
+		
 		jal	checkManyParams
 		jal	assemblerI
 		move	$t6,$v0
@@ -294,7 +404,11 @@ typeJA:		la	$a0,valuesJA
 		# Achei a instr, agora so montar: opcode(6bits) & addr(26 bits)
 		lb	$s0,($v0)
 		sll	$s0,$s0,26
-		jal 	getLabelPC
+		
+		la	$a0,textLabelValues
+		la	$a1,textLabelKeys
+		li	$a3,10
+		jal 	getLabelCode
 		srl	$t0,$v0,2			#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! nao sei pq tem q dividir por 4, mas funciona
 		add	$t6,$s0,$t0
 		jal	checkManyParams
@@ -399,7 +513,7 @@ consumeSpaces: # consome todos os ' '
 		addi	$s7,$s7,-1 			# volta em 1 o ponteiro do arq para lermos o char != ' '
 		jr	$ra
 
-checkManyParams: # indica erro se tiver muitos parametros numa linha
+checkManyParams: # indica erro se tiver mais parametros numa linha
 		addi	$s7,$s7,-1			# pra tamb�m checar o indicador do final da palavra
 		addi	$sp,$sp,-4
 		sw	$ra,0($sp)	
@@ -412,8 +526,7 @@ checkEndFile:	bne	$v1,0,errorManyParams
 		addi	$s7,$s7,-1			# pra reler o 0 na condicao de parada do loop
 		jr 	$ra
 	
-		
-#!!!!!!!!! checar se os $t estao mantendo seus valores originais        
+		      
 getValueAddr:	# recebe $a0(array dos valores), $a1(array das chaves), $a2(num de valor por chave) e $a3(indicador do final da palavra)
 		# le a palavra atual e retorna, se achar, o ponteiro para o(s) valor(es) em $v0(+$a2) ou 0 se nao achar
 		move	$t7,$s7				# salvo o endereco que estou lendo para comparar do inicio para os proximos instrucoes da string
@@ -443,7 +556,8 @@ match:		bne	$t2,',',nextKey			# por convencao as chaves terminam em ','. Entao g
 notFound:	move	$v0,$zero
 		move	$s7,$t7				# reseto o ponteiro do arq para comparar com outra string de instrucoes
 		jr 	$ra
-#!!! ainda nao ta prft, se tiver espaco entre reg e ',', ele nao consegue compilar	
+		
+	
 getRegCode:	# recebe em $a3 o indicador do getValueAddr apenas para repassar para ele
 		# le o registrador atual, se achar, e retorna o codigo em $v0 ou da erro por falta de parametros(registradores)
 		#move	$t3,$a3
@@ -467,18 +581,21 @@ keepNaNKeys:	la	$a0,regValues			# agr temos que achar o valor desse registrador
 		addi	$sp,$sp,4	
 		jr	$ra
 		
-getLabelPC:	
+getLabelCode:	# recebe em $a0,$a1,$a3 o parametros do getValueAddr apenas para repassar para ele
+		move	$a0,$a0
+		move	$a1,$a1
+		move	$a3,$a3
 		addi	$sp,$sp,-4
 		sw	$ra,0($sp)
 		jal 	consumeSpaces
 		lb	$t0,($s7)
 		beq	$t0,'$',errorWrongParam
-		la	$a0,textLabelValues
-		la	$a1,textLabelKeys
+		#la	$a0,textLabelValues
+		#la	$a1,textLabelKeys
 		li	$a2,4				# cada valor esta em Words (4 Bytes) 
-		li	$a3,10
+		#li	$a3,10
 		jal	getValueAddr
-		beq	$v0,$zero,errorNoSuchLabel
+		beq	$v0,$zero,errorNoSuchLabel	# aqui verificar se nao achou no textLabel, ver no dataLabel e vice-versa
 		lw	$v0,($v0)
 		lw	$ra,0($sp)
 		addi	$sp,$sp,4
@@ -666,9 +783,12 @@ printErrorMsg:
 	
 	keysIB:			.asciiz		"beq,bne,"
 	valuesIB:		.byte		0x4,0x5		# opcode
+	keysIC:			.asciiz		"lw,sw,"
+	valuesIC:		.byte		0x23,0x2b	# opcode
 	
 	
-	
+	keysIF:			.asciiz		"bgez,bgezal,"
+	valuesIF:		.byte		0x1,0x1,0x1,0x21	# (opcode,rt)
 	keysJA:			.asciiz		"j,jal,"
 	valuesJA:		.byte		0x2,0x3
 	

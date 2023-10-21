@@ -98,7 +98,7 @@ opcodesI = [
               "lui",   #   0xf       00000      rt              imm   
        ]},
 
-       {"typeIF": [#parametros: rt, offset
+       {"typeIF": [#parametros: rs, offset
               "bgez",  #   0x1        rs        0x1             offset   
               "bgezal",#   0x1        rs       0x21             offset       
        ]},
