@@ -755,18 +755,26 @@ printErrorMsg:
 
 .data
 	fileWords: 		.space  	1024
-	dataLabelKeys:		.space		256 # aqui escrevo as labels dos dodos lidas
-	dataLabelValues:	.space		128 # pc do inicio da lista de .word
-	textLabelKeys:		.space		256 # aqui escrevo as labels do text lidas
-	textLabelValues:	.space		128 # pc de cada label
+	dataLabelKeys:		.space		256  # aqui escrevo as labels dos dodos lidas
+	dataLabelValues:	.space		128  # pc do inicio da lista de .word
+	textLabelKeys:		.space		256  # aqui escrevo as labels do text lidas
+	textLabelValues:	.space		128  # pc de cada label
 	filePath: 		.asciiz 	"D:/example_saida.asm"
+	hexaKeys:		.asciiz		"0,1,2,3,4,5,6,7,8,9,a,b,c,d,e,f,"
+	hexaValues:		.byte		0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
+	decKeys:		.asciiz		"0,1,2,3,4,5,6,7,8,9,"
+	decValues:		.byte		0,1,2,3,4,5,6,7,8,9
+	octKeys:		.asciiz		"0,1,2,3,4,5,6,7,"
+	octValues:		.byte		0,1,2,3,4,5,6,7
+	binKeys:		.asciiz		"0,1,"
+	binValues:		.byte		0,1
 	regKeysNum:		.asciiz		"0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,"
 	regKeysNaN:		.asciiz		"zero,at,v0,v1,a0,a1,a2,a3,t0,t1,t2,t3,t4,t5,t6,t7,s0,s1,s2,s3,s4,s5,s6,s7,t8,t9,k0,k1,gp,sp,fp,ra,"
 	regValues:		.byte		0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
 	keysRA:			.asciiz		"add,addu,and,movn,nor,or,slt,sltu,sub,subu,xor,"
 	valuesRA:		.byte		0x20,0x21,0x24,0xb,0x27,0x25,0x2a,0x2b,0x22,0x23,0x26	# funct
 	keysRB:			.asciiz		"div,mult,"
-	valuesRB:		.byte		0x1a,0x18 	# funct
+	valuesRB:		.byte		0x1a,0x18   	# funct
 	keysRC:			.asciiz		"jr,"
 	valuesRC:		.byte		0x8
 	keysRD:			.asciiz		"mul,"
