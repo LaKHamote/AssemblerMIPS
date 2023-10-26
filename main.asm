@@ -42,32 +42,32 @@ ncaisjj: #lw  $t1,  a($t3)
 		#jal 	printArq
 		jal 	consumeBlankLines
 		jal 	readByte
-		bne	$v1,'.',printErrorMsg
+		bne	$v1,'.',msgNoSection
 		jal	readByte
 		bne	$v1,'d',maybeText
 		jal	readByte
-		bne	$v1,'a',printErrorMsg
+		bne	$v1,'a',msgNoSection
 		jal	readByte
-		bne	$v1,'t',printErrorMsg
+		bne	$v1,'t',msgNoSection
 		jal	readByte
-		bne	$v1,'a',printErrorMsg
+		bne	$v1,'a',msgNoSection
 		jal	readNotNullByte
-		bne	$v1,10,printErrorMsg		# checo se depos de ler data nao ha nenhum char significativo
+		bne	$v1,10,msgNoSection		# checo se depos de ler data nao ha nenhum char significativo
 		move	$s6,$zero			# 'nosso pc' contador da memoria de dados
 		j	dataSection
 		
 findText:	jal 	consumeBlankLines
 		jal 	readByte
-		bne	$v1,'.',printErrorMsg
-maybeText:	bne	$v1,'t',printErrorMsg
+		bne	$v1,'.',msgNoSection
+maybeText:	bne	$v1,'t',msgNoSection
 		jal	readByte
-		bne	$v1,'e',printErrorMsg
+		bne	$v1,'e',msgNoSection
 		jal	readByte
-		bne	$v1,'x',printErrorMsg
+		bne	$v1,'x',msgNoSection
 		jal	readByte
-		bne	$v1,'t',printErrorMsg
+		bne	$v1,'t',msgNoSection
 		jal	readNotNullByte
-		bne	$v1,10,printErrorMsg		# checo se depos de ler text nao ha nenhum char significativo
+		bne	$v1,10,msgNoSection		# checo se depos de ler text nao ha nenhum char significativo
 		move	$s6,$zero			# 'nosso pc' contador da memoria de instrucoes
 		j	textSection	
 		
@@ -963,7 +963,7 @@ printErrorMsg:
 	valuesJA:		.byte		0x2,0x3
 	
 	
-	errorMsg:		.asciiz 	"Unknown section."
+	msgNoSection:		.asciiz 	"Unknown section."
 	msgFewParams:		.asciiz 	"Too few or incorrectly formatted operands."
 	msgManyParams:		 .asciiz 	"Too many operands."
 	msgWrongParams:	 	.asciiz		"Operand is of incorrect type."
