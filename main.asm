@@ -11,7 +11,7 @@ a:    movn  $0     $1,     $s7
 and $t2, $s4, $s6
         movn   $zero     $s6,   $s7
         minhalabelgigante: mult   $t3     $s5   
-        or     $4,    $s0, $s5
+      or     $4,    $s0, $s5
         slt    $20,     $s4     $s1
 nor    $t4,     $24    $s2 
 bgez  $7,  ncaisjj
@@ -34,7 +34,6 @@ div  $t2,     $s1
 div  $t2,     $s1
 ncaisjj: #lw  $t1,  a($t3)
 #sw  $0,  a($0)
-
 
 
 		jal	readFile
@@ -338,10 +337,8 @@ typeIB:		la	$a0,valuesIB
 		jal 	getRegCode
 		sb	$v0,2($sp) 		# empilhar rt
 		
-		la	$a0,textLabelValues
-		la	$a1,textLabelKeys
 		li	$a3,10
-		jal 	getLabelCode
+		jal 	getTextLabelCode
 		subu	$t0,$v0,$s6
 		addi	$t0,$t0,-4
 		srl	$t0,$t0,2		#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! nao sei pq tem q dividir por 4, mas funciona
@@ -370,10 +367,8 @@ typeIC:		la	$a0,valuesIC
 		li	$a3,','
 		jal 	getRegCode
 		sb	$v0,2($sp)		# empilhar rt
-		la	$a0,textLabelValues
-		la	$a1,textLabelKeys
 		li	$a3,'('
-		jal 	getLabelCode
+		jal 	getDataLabelCode
 		#srl	$t0,$t0,2		#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! nao sei pq tem q dividir por 4, mas funciona
 		sw	$v0,4($sp)		# empilhar addr
 		li	$a3,')'
@@ -411,10 +406,8 @@ typeIF:		la	$a0,valuesIF
 		jal 	getRegCode
 		sb	$v0,1($sp)		# empilhar rs
 		
-		la	$a0,textLabelValues
-		la	$a1,textLabelKeys
 		li	$a3,10
-		jal 	getLabelCode
+		jal 	getTextLabelCode
 		subu	$t0,$v0,$s6
 		addi	$t0,$t0,-4
 		srl	$t0,$t0,2		#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! nao sei pq tem q dividir por 4, mas funciona
@@ -441,10 +434,8 @@ typeJA:		la	$a0,valuesJA
 		lb	$s3,($v0)
 		sll	$s3,$s3,26
 		
-		la	$a0,textLabelValues
-		la	$a1,textLabelKeys
 		li	$a3,10
-		jal 	getLabelCode
+		jal 	getTextLabelCode
 		srl	$t0,$v0,2			#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! nao sei pq tem q dividir por 4, mas funciona
 		add	$s3,$s3,$t0
 		jal	checkManyParams
@@ -715,26 +706,57 @@ keepNaNKeys:	la	$a0,regValues			# agr temos que achar o valor desse registrador
 		lw	$ra,0($sp)
 		addi	$sp,$sp,4	
 		jr	$ra
-		
+
+getDataLabelCode:
+		addi	$sp,$sp,-4
+		sw	$ra,0($sp)
+		la	$a0,dataLabelValues
+		la	$a1,dataLabelKeys
+		jal	getLabelCode
+		beq	$v0,$zero,errorDataLabel
+		lw	$ra,0($sp)
+		addi	$sp,$sp,4
+		jr	$ra	
+errorDataLabel:	la	$a0,textLabelValues
+		la	$a1,textLabelKeys
+		move	$a2,$zero			# nao me importo em pegar o endereco
+		jal	getValueAddr
+		beq	$v0,$zero,errorNoSuchLabel
+		j	errorInvMemory	
+
+
+getTextLabelCode: # recebe em $a3 o parametros do getLabelCode apenas para repassar para ele
+		addi	$sp,$sp,-4
+		sw	$ra,0($sp)
+		la	$a0,textLabelValues
+		la	$a1,textLabelKeys
+		jal	getLabelCode
+		beq	$v0,$zero,errorTextLabel
+		lw	$ra,0($sp)
+		addi	$sp,$sp,4
+		jr	$ra	
+errorTextLabel:	la	$a0,dataLabelValues
+		la	$a1,dataLabelKeys
+		move	$a2,$zero			# nao me importo em pegar o endereco
+		jal	getValueAddr
+		beq	$v0,$zero,errorNoSuchLabel
+		j	errorInvSkip	
+				
+						
+										
 getLabelCode:	# recebe em $a0,$a1,$a3 o parametros do getValueAddr apenas para repassar para ele
-		move	$a0,$a0
-		move	$a1,$a1
-		move	$a3,$a3
 		addi	$sp,$sp,-4
 		sw	$ra,0($sp)
 		jal 	consumeSpaces
 		lb	$t0,($s7)
 		beq	$t0,'$',errorWrongParam
-		#la	$a0,textLabelValues
-		#la	$a1,textLabelKeys
 		li	$a2,4				# cada valor esta em Words (4 Bytes) 
-		#li	$a3,10
 		jal	getValueAddr
-		beq	$v0,$zero,errorNoSuchLabel	# aqui verificar se nao achou no textLabel, ver no dataLabel e vice-versa
-		lw	$v0,($v0)
 		lw	$ra,0($sp)
 		addi	$sp,$sp,4
-		jr 	$ra	
+		beq	$v0,$zero,noLabel		# aqui verificar se nao achou no textLabel, ver no dataLabel e vice-versa
+		lw	$v0,($v0)
+noLabel:	jr 	$ra	
 		
 assemblerR:	# desempilho a pilha - funct:5($sp) shamt(4) rd(3) rt(2) rs(1) opcode:0($sp) - e monto o codigo de instrucao tipo R em $v0
 		lb	$a0,0($sp)
@@ -818,11 +840,11 @@ done:		lw	$ra,0($sp)
 storeLabel:	# escreve na memoria uma label separada por v�rgula
 		move	$t0,$a0			# ponteiro para onde escrever as labels
 		move	$t1,$zero		# indice de onde estou colocando a label
-checkStart:	lb	$t2,($t0)		# checo se uma label j� foi escrita
+checkStart:	lb	$t2,($t0)		# checo se uma label ja foi escrita
 		beq	$t2,0,storeByte
 		addi	$t0,$t0,1
 		bne	$t2,',',checkStart
-		addi	$t1,$t1,4		# cada v�rgula lida representa uma label lida
+		addi	$t1,$t1,4		# cada virgula lida representa uma label lida
 		j	checkStart
 storeByte:	lb	$t2,($s7)		# Byte lido do arquivo
 		addi 	$s7,$s7,1
@@ -873,18 +895,17 @@ errorSameLabel:
 		la	$a0,msgSameLabel
 		j 	printErrorMsg
 
+errorInvMemory:
+		la	$a0,msgInvMemory
+		j 	printErrorMsg
+		
+errorInvSkip:	
+		la	$a0,msgInvSkip
+		j 	printErrorMsg	
+
 printErrorMsg:	
-		move	$t0,$a0		# salvo a msg a ser mostrada
-		srl	$a0,$s6,2
-		jal	printInt
-		li	$a0,' '
-		jal	printChar
-		li	$a0,':'
-		jal	printChar
-		li	$a0,' '
-		jal	printChar
-		move	$a0,$t0
-		li	$v0,4
+		li	$v0,55
+		li	$a1,0
 		syscall
 		j	end
 
@@ -942,10 +963,12 @@ printErrorMsg:
 	valuesJA:		.byte		0x2,0x3
 	
 	
-	errorMsg:		.asciiz 	"Comando nao reconhecido."
+	errorMsg:		.asciiz 	"Unknown section."
 	msgFewParams:		.asciiz 	"Too few or incorrectly formatted operands."
 	msgManyParams:		 .asciiz 	"Too many operands."
 	msgWrongParams:	 	.asciiz		"Operand is of incorrect type."
-	msgNoOperator:		.asciiz		"Not a recognized operator"
-	msgNoLabel:		.asciiz		"Label not found in file"
-	msgSameLabel:		.asciiz		"Label already defined in file"
+	msgNoOperator:		.asciiz		"Not a recognized operator."
+	msgNoLabel:		.asciiz		"Label not found in file."
+	msgSameLabel:		.asciiz		"Label already defined in file."
+	msgInvMemory:		.asciiz		"Cannot store or load in this address."
+	msgInvSkip:		.asciiz		"Cannot skip to .data area."
