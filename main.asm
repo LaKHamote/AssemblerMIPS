@@ -20,18 +20,25 @@ pea:      sub    $31,     $s7     $s3
 asadsd:subu   $t9,        $s6,     $s5
 xor    $t6,     $s5, $s0           
 dddddddddd: div  $t2,     $s1 
+div  $t2,     $s1 
+div  $t2,     $s1 
+jbcas:clo   $t6,     $5
+div $t2  $s2 
 div $t2  $s2 
 j    ncaisjj
- div  $t2,     $s1
 beq $t1,$t1 ncaisjj
 div  $t2,     $s1
+mul   $6,     $s5, $0
 div  $t2,     $s1
+        srav   $6,     $s5, $0  
 div  $t2,     $s1
-ncaisjj: 
+ncaisjj: #lw  $t1,  a($t3)
+#sw  $0,  a($0)
 
 
 
 		jal	readFile
+		jal	writeHeader
 		la	$s7,fileWords 			# ponteiro para o texto
 		#jal 	printArq
 		jal 	consumeBlankLines
@@ -117,28 +124,15 @@ typeRA:		la	$a0,valuesRA
 		jal	checkManyParams
 		sb	$zero,4($sp) 		# empilhar shamt
 		sb	$zero,0($sp)		# empilhar opcode
+		
+		jal	writePC
 		jal	assemblerR
-		move	$t6,$v0
-#pra cima, armazeno em $t6 o hexa montado pra instr tipo R		
-		
-		move	$a0,$s6
-		jal	printHexa
-		li	$a0,' '
-		jal	printChar
-		li	$a0,':'
-		jal	printChar
-		li	$a0,' '
-		jal	printChar
-		
-		move	$a0,$t6
-		jal	printHexa
-		li	$a0,10
-		jal	printChar
-		
-		
-# pra cima, escrevo no arquivo a compilacao: PC: hexa
+		move	$a0,$v0
+		jal	writeInstr
+
 		addi	$s6,$s6,4
 		j 	textLine
+
 
 typeRB:		la	$a0,valuesRB
 		la	$a1,keysRB
@@ -160,26 +154,12 @@ typeRB:		la	$a0,valuesRB
 		sb	$zero,4($sp) 		# empilhar shamt
 		sb	$zero,3($sp) 		# empilhar rd
 		sb	$zero,0($sp)		# empilhar opcode
+		
+		jal	writePC
 		jal	assemblerR
-		move	$t6,$v0
-#pra cima, armazeno em $t6 o hexa montado pra instr tipo R	
+		move	$a0,$v0
+		jal	writeInstr
 
-		move	$a0,$s6
-		jal	printHexa
-		li	$a0,' '
-		jal	printChar
-		li	$a0,':'
-		jal	printChar
-		li	$a0,' '
-		jal	printChar
-				
-		move	$a0,$t6
-		jal	printHexa
-		li	$a0,10
-		jal	printChar
-		
-		
-# pra cima, escrevo no arquivo a compilacao: PC: hexa
 		addi	$s6,$s6,4
 		j 	textLine
 		
@@ -202,40 +182,142 @@ typeRC:		la	$a0,valuesRC
 		sb	$zero,3($sp) 		# empilhar rd
 		sb	$zero,2($sp) 		# empilhar rt
 		sb	$zero,0($sp)		# empilhar opcode
+		
+		jal	writePC
 		jal	assemblerR
-		move	$t6,$v0
-#pra cima, armazeno em $t6 o hexa montado pra instr tipo R	
+		move	$a0,$v0
+		jal	writeInstr
 
-		move	$a0,$s6
-		jal	printHexa
-		li	$a0,' '
-		jal	printChar
-		li	$a0,':'
-		jal	printChar
-		li	$a0,' '
-		jal	printChar
-				
-		move	$a0,$t6
-		jal	printHexa
-		li	$a0,10
-		jal	printChar
-		
-		
-# pra cima, escrevo no arquivo a compilacao: PC: hexa
 		addi	$s6,$s6,4
 		j 	textLine
 		
 		
+typeRD:		la	$a0,valuesRD
+		la	$a1,keysRD
+		li	$a2,2			# numero de values por key
+		li	$a3,' '
+		jal	getValueAddr		# pega o endereco relativo a chave passada
+		beq	$v0,$zero,typeRE
+		# Achei a instr, agora so empilhar na pilha: funct:5($sp) shamt(4) rd(3) rt(2) rs(1) opcode:0($sp)
+		addi	$sp,$sp,-8		# desloco 8 Bytes, mas nunca uso 6 ou 7($sp)
+		lb	$t0,($v0)		# pego o opcode do cmd lido
+		sb	$t0,0($sp)		# empilhar opcode
+		lb	$t0,1($v0)		# pego o funct do cmd lido
+		sb	$t0,5($sp)		# empilhar funct
+		li	$a3,','
+		jal 	getRegCode		# pegar cod do rd
+		sb	$v0,3($sp) 		# empilhar rd
+		li	$a3,','
+		jal 	getRegCode		# pegar cod do rs
+		sb	$v0,1($sp)		# empilhar rs
+		li	$a3,10
+		jal 	getRegCode		# pegar cod do rt
+		sb	$v0,2($sp) 		# empilhar rt
+		jal	checkManyParams
+		sb	$zero,4($sp) 		# empilhar shamt
+		
+		jal	writePC
+		jal	assemblerR
+		move	$a0,$v0
+		jal	writeInstr
 
-typeRD:		
+		addi	$s6,$s6,4
+		j 	textLine
 
-typeRE:
+
+typeRE:		la	$a0,valuesRE
+		la	$a1,keysRE
+		li	$a2,2			# numero de values por key
+		li	$a3,' '
+		jal	getValueAddr		# pega o endereco relativo a chave passada
+		beq	$v0,$zero,typeRF
+		# Achei a instr, agora so empilhar na pilha: funct:5($sp) shamt(4) rd(3) rt(2) rs(1) opcode:0($sp)
+		addi	$sp,$sp,-8		# desloco 8 Bytes, mas nunca uso 6 ou 7($sp)
+		lb	$t0,($v0)		# pego o opcode do cmd lido
+		sb	$t0,0($sp)		# empilhar opcode
+		lb	$t0,1($v0)		# pego o funct do cmd lido
+		sb	$t0,5($sp)		# empilhar funct
+		li	$a3,','
+		jal 	getRegCode
+		sb	$v0,3($sp)		# empilhar rd
+		li	$a3,10
+		jal 	getRegCode
+		sb	$v0,1($sp)		# empilhar rs
+		jal	checkManyParams
+		sb	$zero,4($sp) 		# empilhar shamt
+		sb	$zero,2($sp) 		# empilhar rt
+		
+		jal	writePC
+		jal	assemblerR
+		move	$a0,$v0
+		jal	writeInstr
+
+		addi	$s6,$s6,4
+		j 	textLine
+
 
 typeRF:
 
-typeRG:
 
-typeRH:	
+
+typeRG:		la	$a0,valuesRG
+		la	$a1,keysRG
+		li	$a2,1			# numero de values por key
+		li	$a3,' '
+		jal	getValueAddr		# pega o endereco relativo a chave passada
+		beq	$v0,$zero,typeRH
+		# Achei a instr, agora so empilhar na pilha: funct:5($sp) shamt(4) rd(3) rt(2) rs(1) opcode:0($sp)
+		addi	$sp,$sp,-8		# desloco 8 Bytes, mas nunca uso 6 ou 7($sp)
+		lb	$t0,($v0)		# pego o funct do cmd lido
+		sb	$t0,5($sp)		# empilhar funct
+		li	$a3,','
+		jal 	getRegCode		# pegar cod do rd
+		sb	$v0,3($sp) 		# empilhar rd
+		li	$a3,','
+		jal 	getRegCode		# pegar cod do rt
+		sb	$v0,2($sp)		# empilhar rt
+		li	$a3,10
+		jal 	getRegCode		# pegar cod do rs
+		sb	$v0,1($sp) 		# empilhar rs
+		jal	checkManyParams
+		sb	$zero,4($sp) 		# empilhar shamt
+		sb	$zero,0($sp)		# empilhar opcode
+		
+		jal	writePC
+		jal	assemblerR
+		move	$a0,$v0
+		jal	writeInstr
+
+		addi	$s6,$s6,4
+		j 	textLine
+
+
+typeRH:		la	$a0,valuesRH
+		la	$a1,keysRH
+		li	$a2,1			# numero de values por key
+		li	$a3,' '
+		jal	getValueAddr		# pega o endereco relativo a chave passada
+		beq	$v0,$zero,typeIA
+		# Achei a instr, agora so empilhar na pilha: funct:5($sp) shamt(4) rd(3) rt(2) rs(1) opcode:0($sp)
+		addi	$sp,$sp,-8
+		lb	$t0,($v0)
+		sb	$t0,5($sp)		# empilhar funct
+		li	$a3,10
+		jal 	getRegCode
+		sb	$v0,3($sp)		# empilhar rd
+		jal	checkManyParams
+		sb	$zero,4($sp) 		# empilhar shamt
+		sb	$zero,2($sp) 		# empilhar rt
+		sb	$zero,1($sp) 		# empilhar rs
+		sb	$zero,0($sp)		# empilhar opcode
+		
+		jal	writePC
+		jal	assemblerR
+		move	$a0,$v0
+		jal	writeInstr
+
+		addi	$s6,$s6,4
+		j 	textLine
 
 typeIA:
 
@@ -264,32 +346,16 @@ typeIB:		la	$a0,valuesIB
 		addi	$t0,$t0,-4
 		srl	$t0,$t0,2		#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! nao sei pq tem q dividir por 4, mas funciona
 		sw	$t0,4($sp)		# empilhar addr
-		
 		jal	checkManyParams
+		
+		jal	writePC
 		jal	assemblerI
-		move	$t6,$v0
-		
-		
-#pra cima, armazeno em $t6 o hexa montado pra instr tipo R	
+		move	$a0,$v0
+		jal	writeInstr
 
-		move	$a0,$s6
-		jal	printHexa
-		li	$a0,' '
-		jal	printChar
-		li	$a0,':'
-		jal	printChar
-		li	$a0,' '
-		jal	printChar
-				
-		move	$a0,$t6
-		jal	printHexa
-		li	$a0,10
-		jal	printChar
-		
-		
-# pra cima, escrevo no arquivo a compilacao: PC: hexa
 		addi	$s6,$s6,4
 		j 	textLine
+		
 		
 typeIC:		la	$a0,valuesIC
 		la	$a1,keysIC
@@ -315,30 +381,16 @@ typeIC:		la	$a0,valuesIC
 		sb	$v0,1($sp) 		# empilhar rs
 		addi	$s7,$s7,1		# quero pular a verificacao do ')'
 		jal	checkManyParams
+		
+		jal	writePC
 		jal	assemblerI
-		move	$t6,$v0
-		
-		
-#pra cima, armazeno em $t6 o hexa montado pra instr tipo R	
+		move	$a0,$v0
+		jal	writeInstr
 
-		move	$a0,$s6
-		jal	printHexa
-		li	$a0,' '
-		jal	printChar
-		li	$a0,':'
-		jal	printChar
-		li	$a0,' '
-		jal	printChar
-				
-		move	$a0,$t6
-		jal	printHexa
-		li	$a0,10
-		jal	printChar
-		
-		
-# pra cima, escrevo no arquivo a compilacao: PC: hexa
 		addi	$s6,$s6,4
 		j 	textLine
+		
+		
 typeID:
 
 typeIE:
@@ -369,28 +421,12 @@ typeIF:		la	$a0,valuesIF
 		sw	$t0,4($sp)		# empilhar addr
 		
 		jal	checkManyParams
+		
+		jal	writePC
 		jal	assemblerI
-		move	$t6,$v0
-		
-		
-#pra cima, armazeno em $t6 o hexa montado pra instr tipo R	
+		move	$a0,$v0
+		jal	writeInstr
 
-		move	$a0,$s6
-		jal	printHexa
-		li	$a0,' '
-		jal	printChar
-		li	$a0,':'
-		jal	printChar
-		li	$a0,' '
-		jal	printChar
-				
-		move	$a0,$t6
-		jal	printHexa
-		li	$a0,10
-		jal	printChar
-		
-		
-# pra cima, escrevo no arquivo a compilacao: PC: hexa
 		addi	$s6,$s6,4
 		j 	textLine
 
@@ -402,16 +438,23 @@ typeJA:		la	$a0,valuesJA
 		jal	getValueAddr		# pega o endereco relativo a chave passada
 		beq	$v0,$zero,noInstr
 		# Achei a instr, agora so montar: opcode(6bits) & addr(26 bits)
-		lb	$s0,($v0)
-		sll	$s0,$s0,26
+		lb	$s3,($v0)
+		sll	$s3,$s3,26
 		
 		la	$a0,textLabelValues
 		la	$a1,textLabelKeys
 		li	$a3,10
 		jal 	getLabelCode
 		srl	$t0,$v0,2			#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! nao sei pq tem q dividir por 4, mas funciona
-		add	$t6,$s0,$t0
+		add	$s3,$s3,$t0
 		jal	checkManyParams
+		
+		jal	writePC
+		move	$a0,$s3
+		jal	writeInstr
+
+		addi	$s6,$s6,4
+		j 	textLine
 		
 		
 #pra cima, armazeno em $t6 o hexa montado pra instr tipo R	
@@ -462,6 +505,83 @@ readFile:	# ler o filePath
 		syscall
 		jr	$ra
 
+
+writeHeader:	# escrever no openFilePath
+		# abrir o arquivo para escrita (modo de escrita)
+    		li $v0, 13           	# código da chamada do sistema para abrir o arquivo
+    		la $a0,openFilePath    # endereço da string que contém o nome do arquivo
+    		li $a1, 1            	# modo de escrita (1)
+    		li $a2, 0
+    		syscall
+    		move $s0, $v0        	# armazenar o descritor de arquivo retornado
+    		
+    		# escrever no arquivo .mif
+    		li $v0, 15            	# código da chamada do sistema para escrever no arquivo
+    		move $a0, $s0
+    		la $a1, header
+    		li $a2, 80         	# comprimento da string
+    		syscall
+    		jr $ra 
+    		
+writePC:    	# escrever o valor do PC:
+		# converter o conteudo do registrador para hexa
+		addi $sp, $sp, -4
+    		sw $ra, 0($sp)
+    		move $a0, $s6    # PC
+    		la $a1, buffer 	 # buffer para o valor
+    		li $a2, 9        # tamanho do buffer
+    		jal intToHex
+    		
+    		li $v0, 15            	# código da chamada do sistema para escrever no arquivo
+    		move $a0, $s0
+    		la $a1, buffer
+    		li $a2, 8         	# comprimento da string
+    		syscall 
+    		
+    		# escrever o separador " : "
+    		li $v0, 15            	# código da chamada do sistema para escrever no arquivo
+    		move $a0, $s0
+    		la $a1, separador
+    		li $a2, 3         	# comprimento da string
+    		syscall
+    		
+    		lw $ra, 0($sp)
+    		addi $sp, $sp, 4
+    		jr $ra
+    		
+writeInstr:   	# escrever o valor da instrucao
+		# recebe em $a0 a instrucao pra repassar pra intToHex
+		move $a0,$a0
+    		la $a1, buffer 	 # buffer para o valor
+    		li $a2, 9        # tamanho do buffer
+    		addi $sp, $sp, -4
+    		sw $ra, 0($sp)
+    		jal intToHex
+    		
+    		li $v0, 15            	# código da chamada do sistema para escrever no arquivo
+    		move $a0, $s0
+    		la $a1, buffer
+    		li $a2, 8         	# comprimento da string
+    		syscall 
+    		
+    		# escrever o ";" no fim da linha
+    		li $v0, 15            	# código da chamada do sistema para escrever no arquivo
+    		move $a0, $s0
+    		la $a1, fimLinha
+    		li $a2, 2         	# comprimento da string
+    		syscall
+    		
+    		lw $ra, 0($sp)
+    		addi $sp, $sp, 4
+    		jr $ra
+    		
+closeFile:  	# fechar o arquivo .MIF
+    		li $v0, 16            # código do sistema para fechar um arquivo
+    		li $a0, 0             # identificador do arquivo
+    		syscall
+    		jr $ra
+
+
 readByte:	# ler um Byte (Char) e armazena em $v1, incrementando o ponteiro
 		lbu	$v1,($s7)
 		addi	$s7,$s7,1
@@ -495,6 +615,21 @@ printArq:	# mostrar na tela no o arquivo lido
 		la	$a0,fileWords
 		syscall
 		jr	$ra
+
+intToHex:
+    		li   $t3, 8         # $t3 = numero de caracteres (8)
+    		li   $t4, 16        # $t4 = base hexadecimal
+    		addi $a1, $a1, 8    # aponta pro final do buffer
+    		sb   $zero, 0($a1)
+convertLoop:	remu  $t2, $a0, $t4  # $t2 = $a0 % 16
+    		sll  $t2,$t2,1
+    		lb   $t2,hexaKeys($t2)
+    		sb   $t2, -1($a1)   # Store the ASCII character
+    		srl  $a0,$a0,4  # $a0 = $a0 / 16
+    		subi $a1, $a1, 1    # Move the buffer pointer left
+    		subi $t3, $t3, 1    # Decrement character count
+    		bnez $t3, convertLoop
+    		jr   $ra             # Return
 
 consumeBlankLines: # consome todos os ' ' e '\n' seguidos
 		lbu	$t1,($s7)
@@ -760,6 +895,12 @@ printErrorMsg:
 	textLabelKeys:		.space		256  # aqui escrevo as labels do text lidas
 	textLabelValues:	.space		128  # pc de cada label
 	filePath: 		.asciiz 	"D:/example_saida.asm"
+	openFilePath:		.asciiz		"D:/arquivo.mif"
+	header:			.asciiz		"DEPTH = 4096;\nWIDTH = 32;\nADDRESS_RADIX = HEX;\nDATA_RADIX = HEX;\nCONTENT\nBEGIN\n\n"  # cabeçalho do arquivo .MIF
+	separador: 		.asciiz 	" : "
+	fimLinha:		.asciiz		";\n"
+	rodape:			.asciiz 	";\nEND;\n"
+	buffer:			.space		9
 	hexaKeys:		.asciiz		"0,1,2,3,4,5,6,7,8,9,a,b,c,d,e,f,"
 	hexaValues:		.byte		0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
 	decKeys:		.asciiz		"0,1,2,3,4,5,6,7,8,9,"
