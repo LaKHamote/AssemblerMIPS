@@ -34,48 +34,79 @@ sll $6,   $9 10
 jal   fff
 fff:
 addi	$4, $6, -12
+lb	$t1,msgFewParams
 
 
 		jal	readFile
 		jal	writeHeader
 		la	$s7,fileWords 			# ponteiro para o texto
-		#jal 	printArq
 		jal 	consumeBlankLines
 		jal 	readByte
-		bne	$v1,'.',msgNoSection
+		bne	$v1,'.',errorNoSection
 		jal	readByte
 		bne	$v1,'d',maybeText
 		jal	readByte
-		bne	$v1,'a',msgNoSection
+		bne	$v1,'a',errorNoSection
 		jal	readByte
-		bne	$v1,'t',msgNoSection
+		bne	$v1,'t',errorNoSection
 		jal	readByte
-		bne	$v1,'a',msgNoSection
+		bne	$v1,'a',errorNoSection
 		jal	readNotNullByte
-		bne	$v1,10,msgNoSection		# checo se depos de ler data nao ha nenhum char significativo
-		li	$s6,0x10010000			# 'nosso pc' contador da memoria de dados
+		bne	$v1,10,errorNoSection		# checo se depos de ler data nao ha nenhum char significativo
+		li	$s6,0				# 'nosso pc' contador da memoria de dados
 		j	dataSection
 		
-findText:	jal 	consumeBlankLines
+		jal 	consumeBlankLines
+findText:	jal 	readByte
+		bne	$v1,'.',errorNoSection
 		jal 	readByte
-		bne	$v1,'.',msgNoSection
-maybeText:	bne	$v1,'t',msgNoSection
+maybeText:	bne	$v1,'t',errorNoSection
 		jal	readByte
-		bne	$v1,'e',msgNoSection
+		bne	$v1,'e',errorNoSection
 		jal	readByte
-		bne	$v1,'x',msgNoSection
+		bne	$v1,'x',errorNoSection
 		jal	readByte
-		bne	$v1,'t',msgNoSection
+		bne	$v1,'t',errorNoSection
 		jal	readNotNullByte
-		bne	$v1,10,msgNoSection		# checo se depos de ler text nao ha nenhum char significativo
+		bne	$v1,10,errorNoSection		# checo se depos de ler text nao ha nenhum char significativo
 		li	$s6,0x400000			# 'nosso pc' contador da memoria de instrucoes
 		j	textSection	
 		
 dataSection:	# provavelmente a primeira coisa eh label -> NAME: .STORAGEFORMAT VALUE
 		jal	consumeBlankLines
+		lb	$t0,($s7)
+		beq	$t0,'.',findText
 		
-		jal	findText
-		j	end
+		jal 	checkIfIsLabel
+		beq	$v0,$zero,errorWrongParam
+		la	$a0,dataLabelKeys
+		jal	storeLabel
+		la	$t0,dataLabelValues
+		add	$t0,$t0,$v0
+		sw	$s6,($t0)
+		jal	readNotNullByte
+		beq	$v1,10,dataSection
+		bne	$v1,'.',errorWStorageType
+		jal 	readByte
+		bne	$v1,'w',errorWStorageType
+		jal	readByte
+		bne	$v1,'o',errorWStorageType
+		jal	readByte
+		bne	$v1,'r',errorWStorageType
+		jal	readByte
+		bne	$v1,'d',errorWStorageType
+dataLine:	jal	readNotNullByte
+		beq	$v1,10,dataSection
+		addi	$s7,$s7,-1
+		jal	writePC
+		li	$a3,','
+		jal	getNumberValue
+		move	$a0,$v0
+		jal	writeInstr
+		addi	$s6,$s6,4			# 4 pq trato de words
+		lb	$t0,-1($s7)			# checar o último Byte lido
+		beq	$t0,10,dataSection
+		j	dataLine
 		
 		
 textSection:	
@@ -510,7 +541,7 @@ readFile:	# ler o filePath
 writeHeader:	# escrever no openFilePath
 		# abrir o arquivo para escrita (modo de escrita)
     		li 	$v0,13           	# código da chamada do sistema para abrir o arquivo
-    		la 	$a0,openFilePath    # endereço da string que contém o nome do arquivo
+    		la 	$a0,openTextFile    # endereço da string que contém o nome do arquivo
     		li	$a1, 1            	# modo de escrita (1)
     		li 	$a2, 0
     		syscall
@@ -722,7 +753,7 @@ getNumberValue:	# receve em $a3 um indicador de fim de numero
 		addi	$sp,$sp,-4
 		sw	$ra,0($sp)
 		move	$t9,$zero			# flag de numero negativo, assumo sem sinal
-		move	$t6,$zero			# armazenar o numero convertido
+		move	$v0,$zero			# valor de retorno da funcao
 		jal	readNotNullByte
 		bne	$v1,'-',noFlag
 		addiu	$t9,$zero,1			# ativo a flag de numero com sinal
@@ -765,16 +796,15 @@ exponential:	beq	$t4,$zero,gotDigitValue		# calculei  $t5*$t1^($t4) e armazenei 
 		j	exponential
 gotDigitValue:	lb	$t4,0($sp)			# recupero o expoente(peso) do ultimo digito 
 		addi	$sp,$sp,1
-		add	$t6,$t6,$t5
+		add	$v0,$v0,$t5
 		addi	$t4,$t4,1
 		beq	$t8,$t7,retNumber
 		addi	$t8,$t8,-1
 		j	nextDigit
 retNumber:	beq	$t9,$zero,unsigned
-		not	$t6,$t6
-		addi	$t6,$t6,1
-unsigned:	move	$v0,$t6
-		lw	$ra,0($sp)
+		not	$v0,$v0
+		addi	$v0,$v0,1
+unsigned:	lw	$ra,0($sp)
 		addi	$sp,$sp,4
 		jr	$ra
 
@@ -923,7 +953,7 @@ done:		lw	$ra,0($sp)
 
 
 
-storeLabel:	# escreve na memoria uma label separada por vï¿½rgula
+storeLabel:	# escreve na memoria uma label separada por virgula
 		move	$t0,$a0			# ponteiro para onde escrever as labels
 		move	$t1,$zero		# indice de onde estou colocando a label
 checkStart:	lb	$t2,($t0)		# checo se uma label ja foi escrita
@@ -956,7 +986,11 @@ findEnd:	lbu	$t0,($t7)
 		li	$v0,1
 noColon:	jr	$ra
 
-		
+
+errorNoSection:
+		la	$a0,msgNoSection
+		j 	printErrorMsg
+				
 errorFewParams:
 		la	$a0,msgFewParams
 		j 	printErrorMsg
@@ -966,7 +1000,7 @@ errorManyParams:
 		j 	printErrorMsg
 
 errorWrongParam:
-		la	$a0,msgWrongParams
+		la	$a0,msgWrongParam
 		j 	printErrorMsg
 
 errorNoSuchOperator:
@@ -1000,6 +1034,10 @@ errorOutOfRange:
 errorInvSymbol:	
 		la	$a0,msgInvSymbol
 		j 	printErrorMsg
+		
+errorWStorageType:	
+		la	$a0,msgWrongStorageType
+		j 	printErrorMsg
 
 
 printErrorMsg:	
@@ -1015,7 +1053,8 @@ printErrorMsg:
 	textLabelKeys:		.space		256  # aqui escrevo as labels do text lidas
 	textLabelValues:	.space		128  # pc de cada label
 	filePath: 		.asciiz 	"D:/example_saida.asm"
-	openFilePath:		.asciiz		"D:/arquivo.mif"
+	openTextFile:		.asciiz		"D:/arquivo_text.mif"
+	openDataFile:		.asciiz		"D:/arquivo_data.mif"
 	header:			.asciiz		"DEPTH = 4096;\nWIDTH = 32;\nADDRESS_RADIX = HEX;\nDATA_RADIX = HEX;\nCONTENT\nBEGIN\n\n"  # cabeçalho do arquivo .MIF
 	separador: 		.asciiz 	" : "
 	fimLinha:		.asciiz		";\n"
@@ -1055,16 +1094,16 @@ printErrorMsg:
 	keysJA:			.asciiz		"j,jal,"
 	valuesJA:		.byte		0x2,0x3
 	
-	
 	msgNoSection:		.asciiz 	"Unknown section."
 	msgFewParams:		.asciiz 	"Too few or incorrectly formatted operands."
-	msgManyParams:		 .asciiz 	"Too many operands."
-	msgWrongParams:	 	.asciiz		"Operand is of incorrect type."
+	msgManyParams:		.asciiz 	"Too many operands."
+	msgWrongParam:	 	.asciiz		"Operand is of incorrect type."
 	msgNoOperator:		.asciiz		"Not a recognized operator."
 	msgNoLabel:		.asciiz		"Label not found in file."
 	msgSameLabel:		.asciiz		"Label already defined in file."
 	msgInvMemory:		.asciiz		"Cannot load or write directly to text segment."
-	msgInvSkip:		.asciiz		"Cannot skip to .data area."
+	msgInvSkip:		.asciiz		"Cannot skip to data segment."
 	msgWrongBase:		.asciiz		"Not a valid base."
 	msgOutOfRange:		.asciiz		"Operand is out of range."
 	msgInvSymbol:		.asciiz		"Not a valid symbol for known bases (hexa or decimal)."
+	msgWrongStorageType:	.asciiz		"Not a valid storage format. Use .word"
