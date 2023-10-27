@@ -51,10 +51,11 @@ lb	$t1,msgFewParams
 		bne	$v1,'t',errorNoSection
 		jal	readByte
 		bne	$v1,'a',errorNoSection
-		jal	readNotNullByte
-		bne	$v1,10,errorNoSection		# checo se depos de ler data nao ha nenhum char significativo
 		li	$s6,0				# 'nosso pc' contador da memoria de dados
-		j	dataSection
+		jal	readNotNullByte
+		beq	$v1,10,dataSection		# checo se depos de ler text nao ha nenhum char significativo
+		beq	$v1,0,end
+		j	errorNoSection
 		
 		jal 	consumeBlankLines
 findText:	jal 	readByte
@@ -67,15 +68,17 @@ maybeText:	bne	$v1,'t',errorNoSection
 		bne	$v1,'x',errorNoSection
 		jal	readByte
 		bne	$v1,'t',errorNoSection
-		jal	readNotNullByte
-		bne	$v1,10,errorNoSection		# checo se depos de ler text nao ha nenhum char significativo
 		li	$s6,0x400000			# 'nosso pc' contador da memoria de instrucoes
-		j	textSection	
+		jal	readNotNullByte
+		beq	$v1,10,textSection		# checo se depos de ler text nao ha nenhum char significativo
+		beq	$v1,0,end
+		j	errorNoSection	
 		
 dataSection:	# provavelmente a primeira coisa eh label -> NAME: .STORAGEFORMAT VALUE
 		jal	consumeBlankLines
 		lb	$t0,($s7)
 		beq	$t0,'.',findText
+		beq	$t0,0,end		# nao tem area .text
 		
 		jal 	checkIfIsLabel
 		beq	$v0,$zero,errorWrongParam
@@ -680,7 +683,7 @@ consumeSpaces: # consome todos os ' '
 		jr	$ra
 
 checkManyParams: # indica erro se tiver mais parametros numa linha
-		addi	$s7,$s7,-1			# pra tambï¿½m checar o indicador do final da palavra
+		addi	$s7,$s7,-1			# pra tambe½m checar o indicador do final da palavra
 		addi	$sp,$sp,-4
 		sw	$ra,0($sp)	
 		jal	readNotNullByte
@@ -790,8 +793,8 @@ foundValue:	subu	$t0,$t0,$t5			# reseto o $t0 para o priiro elemento da lista
 		sb	$t4,0($sp)			# salvar o valor do expoente
 exponential:	beq	$t4,$zero,gotDigitValue		# calculei  $t5*$t1^($t4) e armazenei em $t5
 		mul	$t5,$t5,$t1
-		#mfhi	$				# checar se passou de 32 bits
-		#beq	$,$zero,error
+		mfhi	$t6				# checar se passou de 32 bits
+		bne	$t6,$zero,errorOutOfRange
 		addi	$t4,$t4,-1
 		j	exponential
 gotDigitValue:	lb	$t4,0($sp)			# recupero o expoente(peso) do ultimo digito 
