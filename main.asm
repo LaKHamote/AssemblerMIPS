@@ -1,8 +1,5 @@
 .text
-		#   debugger
-		#move	$a0,$v1
-		#jal 	printChar
-		#j	end
+
 
 a:    movn  $0     $1,     $s7
       div         $t2,     $s1
@@ -11,7 +8,7 @@ a:    movn  $0     $1,     $s7
 and $t2, $s4, $s6
         movn   $zero     $s6,   $s7
         minhalabelgigante: mult   $t3     $s5   
-      or     $4,    $s0, $s5
+        or     $4,    $s0, $s5
         slt    $20,     $s4     $s1
 nor    $t4,     $24    $s2 
 bgez  $7,  ncaisjj
@@ -32,8 +29,9 @@ mul   $6,     $s5, $0
 div  $t2,     $s1
         srav   $6,     $s5, $0  
 div  $t2,     $s1
-ncaisjj: #lw  $t1,  a($t3)
-#sw  $0,  a($0)
+ncaisjj: 
+sll $6,   $9 0
+jal   ncaisjj
 
 
 		jal	readFile
@@ -53,7 +51,7 @@ ncaisjj: #lw  $t1,  a($t3)
 		bne	$v1,'a',msgNoSection
 		jal	readNotNullByte
 		bne	$v1,10,msgNoSection		# checo se depos de ler data nao ha nenhum char significativo
-		move	$s6,$zero			# 'nosso pc' contador da memoria de dados
+		li	$s6,0x10010000			# 'nosso pc' contador da memoria de dados
 		j	dataSection
 		
 findText:	jal 	consumeBlankLines
@@ -68,7 +66,7 @@ maybeText:	bne	$v1,'t',msgNoSection
 		bne	$v1,'t',msgNoSection
 		jal	readNotNullByte
 		bne	$v1,10,msgNoSection		# checo se depos de ler text nao ha nenhum char significativo
-		move	$s6,$zero			# 'nosso pc' contador da memoria de instrucoes
+		li	$s6,0x400000			# 'nosso pc' contador da memoria de instrucoes
 		j	textSection	
 		
 dataSection:	# provavelmente a primeira coisa eh label -> NAME: .STORAGEFORMAT VALUE
@@ -82,7 +80,7 @@ textSection:
 		move	$s5,$s7				# salvo o ponteiro para o inicio do .text
 		jal 	storeAllLabels
 		move	$s7,$s5				# restoro o pornteito para reler o .text de novo focado nas instrucoes	
-		move	$s6,$zero			# restauro o contador de instr
+		li	$s6,0x400000			# restauro o contador de instr
 textLine:	                   
 		jal	consumeBlankLines
 		
@@ -255,7 +253,41 @@ typeRE:		la	$a0,valuesRE
 		j 	textLine
 
 
-typeRF:
+typeRF:		la	$a0,valuesRF
+		la	$a1,keysRF
+		li	$a2,1			# numero de values por key
+		li	$a3,' '
+		jal	getValueAddr		# pega o endereco relativo a chave passada
+		beq	$v0,$zero,typeRG
+		# Achei a instr, agora so empilhar na pilha: funct:5($sp) shamt(4) rd(3) rt(2) rs(1) opcode:0($sp)
+		addi	$sp,$sp,-8		# desloco 8 Bytes, mas nunca uso 6 ou 7($sp)
+		lb	$t0,($v0)
+		sb	$t0,5($sp)		# empilhar funct
+		li	$a3,','
+		jal 	getRegCode
+		sb	$v0,3($sp)		# empilhar rd
+		li	$a3,10
+		jal 	getRegCode
+		sb	$v0,2($sp)		# empilhar rt
+		
+		
+		
+		
+		
+		
+		
+		
+		jal	checkManyParams
+		sb	$zero,1($sp) 		# empilhar rs
+		sb	$zero,0($sp) 		# empilhar opcode
+		
+		jal	writePC
+		jal	assemblerR
+		move	$a0,$v0
+		jal	writeInstr
+
+		addi	$s6,$s6,4
+		j 	textLine
 
 
 
@@ -430,42 +462,22 @@ typeJA:		la	$a0,valuesJA
 		li	$a3,' '
 		jal	getValueAddr		# pega o endereco relativo a chave passada
 		beq	$v0,$zero,noInstr
-		# Achei a instr, agora so montar: opcode(6bits) & addr(26 bits)
-		lb	$s3,($v0)
-		sll	$s3,$s3,26
+		# Achei a instr, agora so empilhar na pilha: addr:4($sp) & opcode:0($sp) 
+		lb	$t0,($v0)
+		sb	$t0,0($sp)
 		
 		li	$a3,10
 		jal 	getTextLabelCode
-		srl	$t0,$v0,2			#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! nao sei pq tem q dividir por 4, mas funciona
-		add	$s3,$s3,$t0
+		srl	$t0,$v0,2		#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! nao sei pq tem q dividir por 4, mas funciona
+		sw	$t0,4($sp)
+			
 		jal	checkManyParams
 		
 		jal	writePC
-		move	$a0,$s3
+		jal 	assemblerJ
+		move	$a0,$v0
 		jal	writeInstr
 
-		addi	$s6,$s6,4
-		j 	textLine
-		
-		
-#pra cima, armazeno em $t6 o hexa montado pra instr tipo R	
-
-		move	$a0,$s6
-		jal	printHexa
-		li	$a0,' '
-		jal	printChar
-		li	$a0,':'
-		jal	printChar
-		li	$a0,' '
-		jal	printChar
-				
-		move	$a0,$t6
-		jal	printHexa
-		li	$a0,10
-		jal	printChar
-		
-		
-# pra cima, escrevo no arquivo a compilacao: PC: hexa
 		addi	$s6,$s6,4
 		j 	textLine
 
@@ -499,78 +511,78 @@ readFile:	# ler o filePath
 
 writeHeader:	# escrever no openFilePath
 		# abrir o arquivo para escrita (modo de escrita)
-    		li $v0, 13           	# código da chamada do sistema para abrir o arquivo
-    		la $a0,openFilePath    # endereço da string que contém o nome do arquivo
-    		li $a1, 1            	# modo de escrita (1)
-    		li $a2, 0
+    		li 	$v0,13           	# código da chamada do sistema para abrir o arquivo
+    		la 	$a0,openFilePath    # endereço da string que contém o nome do arquivo
+    		li	$a1, 1            	# modo de escrita (1)
+    		li 	$a2, 0
     		syscall
-    		move $s0, $v0        	# armazenar o descritor de arquivo retornado
+    		move 	$s0, $v0        	# armazenar o descritor de arquivo retornado
     		
     		# escrever no arquivo .mif
-    		li $v0, 15            	# código da chamada do sistema para escrever no arquivo
-    		move $a0, $s0
-    		la $a1, header
-    		li $a2, 80         	# comprimento da string
+    		li	$v0, 15            	# código da chamada do sistema para escrever no arquivo
+    		move 	$a0, $s0
+    		la 	$a1, header
+    		li 	$a2, 80         	# comprimento da string
     		syscall
-    		jr $ra 
+    		jr 	$ra 
     		
 writePC:    	# escrever o valor do PC:
 		# converter o conteudo do registrador para hexa
-		addi $sp, $sp, -4
-    		sw $ra, 0($sp)
-    		move $a0, $s6    # PC
-    		la $a1, buffer 	 # buffer para o valor
-    		li $a2, 9        # tamanho do buffer
-    		jal intToHex
+		addi 	$sp, $sp, -4
+    		sw 	$ra, 0($sp)
+    		move 	$a0, $s6    # PC
+    		la 	$a1, buffer 	 # buffer para o valor
+    		li 	$a2, 9        # tamanho do buffer
+    		jal 	binToHex
     		
-    		li $v0, 15            	# código da chamada do sistema para escrever no arquivo
-    		move $a0, $s0
-    		la $a1, buffer
-    		li $a2, 8         	# comprimento da string
+    		li 	$v0, 15            	# código da chamada do sistema para escrever no arquivo
+    		move 	$a0, $s0
+    		la 	$a1, buffer
+    		li 	$a2, 8         	# comprimento da string
     		syscall 
     		
     		# escrever o separador " : "
-    		li $v0, 15            	# código da chamada do sistema para escrever no arquivo
-    		move $a0, $s0
-    		la $a1, separador
-    		li $a2, 3         	# comprimento da string
+    		li 	$v0, 15            	# código da chamada do sistema para escrever no arquivo
+    		move 	$a0, $s0
+    		la 	$a1, separador
+    		li 	$a2, 3         	# comprimento da string
     		syscall
     		
-    		lw $ra, 0($sp)
-    		addi $sp, $sp, 4
-    		jr $ra
+    		lw 	$ra, 0($sp)
+    		addi 	$sp, $sp, 4
+    		jr 	$ra
     		
 writeInstr:   	# escrever o valor da instrucao
 		# recebe em $a0 a instrucao pra repassar pra intToHex
-		move $a0,$a0
-    		la $a1, buffer 	 # buffer para o valor
-    		li $a2, 9        # tamanho do buffer
-    		addi $sp, $sp, -4
-    		sw $ra, 0($sp)
-    		jal intToHex
+		move 	$a0,$a0
+    		la 	$a1, buffer 	 # buffer para o valor
+    		li 	$a2, 9        # tamanho do buffer
+    		addi 	$sp, $sp, -4
+    		sw 	$ra, 0($sp)
+    		jal 	binToHex
     		
-    		li $v0, 15            	# código da chamada do sistema para escrever no arquivo
-    		move $a0, $s0
-    		la $a1, buffer
-    		li $a2, 8         	# comprimento da string
+    		li 	$v0, 15            	# código da chamada do sistema para escrever no arquivo
+    		move 	$a0, $s0
+    		la 	$a1, buffer
+    		li 	$a2, 8         	# comprimento da string
     		syscall 
     		
     		# escrever o ";" no fim da linha
-    		li $v0, 15            	# código da chamada do sistema para escrever no arquivo
-    		move $a0, $s0
-    		la $a1, fimLinha
-    		li $a2, 2         	# comprimento da string
+    		li 	$v0, 15            	# código da chamada do sistema para escrever no arquivo
+    		move 	$a0, $s0
+    		la 	$a1, fimLinha
+    		li 	$a2, 2         	# comprimento da string
     		syscall
     		
-    		lw $ra, 0($sp)
-    		addi $sp, $sp, 4
-    		jr $ra
+    		lw	$ra, 0($sp)
+    		addi 	$sp, $sp, 4
+    		jr 	$ra
     		
 closeFile:  	# fechar o arquivo .MIF
-    		li $v0, 16            # código do sistema para fechar um arquivo
-    		li $a0, 0             # identificador do arquivo
+    		li 	$v0, 16            # código do sistema para fechar um arquivo
+    		li 	$a0, 0             # identificador do arquivo
     		syscall
-    		jr $ra
+    		jr 	$ra
 
 
 readByte:	# ler um Byte (Char) e armazena em $v1, incrementando o ponteiro
@@ -607,20 +619,19 @@ printArq:	# mostrar na tela no o arquivo lido
 		syscall
 		jr	$ra
 
-intToHex:
-    		li   $t3, 8         # $t3 = numero de caracteres (8)
-    		li   $t4, 16        # $t4 = base hexadecimal
-    		addi $a1, $a1, 8    # aponta pro final do buffer
-    		sb   $zero, 0($a1)
-convertLoop:	remu  $t2, $a0, $t4  # $t2 = $a0 % 16
-    		sll  $t2,$t2,1
-    		lb   $t2,hexaKeys($t2)
-    		sb   $t2, -1($a1)   # Store the ASCII character
-    		srl  $a0,$a0,4  # $a0 = $a0 / 16
-    		subi $a1, $a1, 1    # Move the buffer pointer left
-    		subi $t3, $t3, 1    # Decrement character count
-    		bnez $t3, convertLoop
-    		jr   $ra             # Return
+binToHex:
+    		li 	$t3, 8       		# $t3 = numero de caracteres (8)
+    		li  	$t4, 16      		# $t4 = base hexadecimal
+    		addi	$a1, $a1, 8   		# aponta pro final do buffer
+    		sb  	$zero, 0($a1)
+convertLoop:	remu	$t2, $a0, $t4 	# $t2 = $a0 % 16
+    		lb  	$t2,hexaKeys($t2)
+    		sb   	$t2, -1($a1)  		# Store the ASCII character
+    		srl  	$a0,$a0,4  		# $a0 = $a0 / 16
+    		subi 	$a1, $a1, 1   		# Move the buffer pointer left
+    		subi 	$t3, $t3, 1   		# Decrement character count
+    		bnez 	$t3, convertLoop
+    		jr   	$ra             # Return
 
 consumeBlankLines: # consome todos os ' ' e '\n' seguidos
 		lbu	$t1,($s7)
@@ -707,6 +718,8 @@ keepNaNKeys:	la	$a0,regValues			# agr temos que achar o valor desse registrador
 		addi	$sp,$sp,4	
 		jr	$ra
 
+getNumberValue:
+
 getDataLabelCode:
 		addi	$sp,$sp,-4
 		sw	$ra,0($sp)
@@ -781,7 +794,7 @@ assemblerR:	# desempilho a pilha - funct:5($sp) shamt(4) rd(3) rt(2) rs(1) opcod
 		jr 	$ra	
 		
 
-assemblerI:	# desempilho a pilha - addr:3($sp) rt(2) rs(1) opcode:0($sp) - e monto o codigo de instrucao tipo I em $v0
+assemblerI:	# desempilho a pilha - addr:4-7($sp) rt(2) rs(1) opcode:0($sp) - e monto o codigo de instrucao tipo I em $v0
 		lb	$a0,0($sp)
 		move	$t0,$a0
 		sll	$t0,$t0,5
@@ -798,6 +811,16 @@ assemblerI:	# desempilho a pilha - addr:3($sp) rt(2) rs(1) opcode:0($sp) - e mon
 		jr 	$ra	
 
 
+assemblerJ:	# desempilho a pilha  - addr:4-7($sp) opcode:0($sp) - e monto o codigo de instrucao tipo I em $v0
+		lb	$a0,0($sp)
+		move	$t0,$a0
+		sll	$t0,$t0,26
+		lw	$a0,4($sp)
+		add	$t0,$t0,$a0
+		move	$v0,$t0
+		jr 	$ra
+		
+		
 storeAllLabels:	
 		addi	$sp,$sp,-4
 		sw	$ra,0($sp)
@@ -922,13 +945,13 @@ printErrorMsg:
 	fimLinha:		.asciiz		";\n"
 	rodape:			.asciiz 	";\nEND;\n"
 	buffer:			.space		9
-	hexaKeys:		.asciiz		"0,1,2,3,4,5,6,7,8,9,a,b,c,d,e,f,"
+	hexaKeys:		.asciiz		"0123456789abcdef"
 	hexaValues:		.byte		0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
-	decKeys:		.asciiz		"0,1,2,3,4,5,6,7,8,9,"
+	decKeys:		.asciiz		"0123456789"
 	decValues:		.byte		0,1,2,3,4,5,6,7,8,9
-	octKeys:		.asciiz		"0,1,2,3,4,5,6,7,"
+	octKeys:		.asciiz		"01234567"
 	octValues:		.byte		0,1,2,3,4,5,6,7
-	binKeys:		.asciiz		"0,1,"
+	binKeys:		.asciiz		"01"
 	binValues:		.byte		0,1
 	regKeysNum:		.asciiz		"0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,"
 	regKeysNaN:		.asciiz		"zero,at,v0,v1,a0,a1,a2,a3,t0,t1,t2,t3,t4,t5,t6,t7,s0,s1,s2,s3,s4,s5,s6,s7,t8,t9,k0,k1,gp,sp,fp,ra,"
@@ -970,5 +993,5 @@ printErrorMsg:
 	msgNoOperator:		.asciiz		"Not a recognized operator."
 	msgNoLabel:		.asciiz		"Label not found in file."
 	msgSameLabel:		.asciiz		"Label already defined in file."
-	msgInvMemory:		.asciiz		"Cannot store or load in this address."
+	msgInvMemory:		.asciiz		"Cannot load or write directly to text segment"
 	msgInvSkip:		.asciiz		"Cannot skip to .data area."
