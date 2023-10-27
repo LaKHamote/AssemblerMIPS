@@ -30,8 +30,10 @@ div  $t2,     $s1
         srav   $6,     $s5, $0  
 div  $t2,     $s1
 ncaisjj: 
-sll $6,   $9 0
-jal   ncaisjj
+sll $6,   $9 1
+jal   fff
+fff:
+addi	$4, $6, -12
 
 
 		jal	readFile
@@ -78,7 +80,7 @@ dataSection:	# provavelmente a primeira coisa eh label -> NAME: .STORAGEFORMAT V
 		
 textSection:	
 		move	$s5,$s7				# salvo o ponteiro para o inicio do .text
-		jal 	storeAllLabels
+		jal 	storeAllTextLabels
 		move	$s7,$s5				# restoro o pornteito para reler o .text de novo focado nas instrucoes	
 		li	$s6,0x400000			# restauro o contador de instr
 textLine:	                   
@@ -261,22 +263,18 @@ typeRF:		la	$a0,valuesRF
 		beq	$v0,$zero,typeRG
 		# Achei a instr, agora so empilhar na pilha: funct:5($sp) shamt(4) rd(3) rt(2) rs(1) opcode:0($sp)
 		addi	$sp,$sp,-8		# desloco 8 Bytes, mas nunca uso 6 ou 7($sp)
-		lb	$t0,($v0)
+		lb	$t0,0($v0)
 		sb	$t0,5($sp)		# empilhar funct
 		li	$a3,','
 		jal 	getRegCode
 		sb	$v0,3($sp)		# empilhar rd
-		li	$a3,10
+		li	$a3,','
 		jal 	getRegCode
 		sb	$v0,2($sp)		# empilhar rt
-		
-		
-		
-		
-		
-		
-		
-		
+		li	$a3,' '
+		jal	getNumberValue
+		bgeu	$v0,0x2,errorOutOfRange	# deve caber em 5 bits
+		sb	$v0,4($sp)		# empilhar shamt
 		jal	checkManyParams
 		sb	$zero,1($sp) 		# empilhar rs
 		sb	$zero,0($sp) 		# empilhar opcode
@@ -625,7 +623,7 @@ binToHex:
     		addi	$a1, $a1, 8   		# aponta pro final do buffer
     		sb  	$zero, 0($a1)
 convertLoop:	remu	$t2, $a0, $t4 	# $t2 = $a0 % 16
-    		lb  	$t2,hexaKeys($t2)
+    		lb  	$t2,hexaSymbols($t2)
     		sb   	$t2, -1($a1)  		# Store the ASCII character
     		srl  	$a0,$a0,4  		# $a0 = $a0 / 16
     		subi 	$a1, $a1, 1   		# Move the buffer pointer left
@@ -696,7 +694,7 @@ notFound:	move	$v0,$zero
 		
 	
 getRegCode:	# recebe em $a3 o indicador do getValueAddr apenas para repassar para ele
-		# le o registrador atual, se achar, e retorna o codigo em $v0 ou da erro por falta de parametros(registradores)
+		# le o registrador atual do arquivo e, se achar, retorna o codigo em $v0 ou da erro por falta de parametros(registradores)
 		#move	$t3,$a3
 		addi	$sp,$sp,-4
 		sw	$ra,0($sp)
@@ -708,7 +706,7 @@ getRegCode:	# recebe em $a3 o indicador do getValueAddr apenas para repassar par
 		la	$a1,regKeysNaN			# assumo que o registrador esta escrito com seu 'apelido':  $9 -> $t2
 		bgeu	$t1,58,keepNaNKeys		# aqui lemos um caracter nao numerico entao acertamos na assuncao acima
 		la	$a1,regKeysNum			# aqui lemos um caracter nao numerico entao erramos na assunï¿½cao
-keepNaNKeys:	la	$a0,regValues			# agr temos que achar o valor desse registrador
+keepNaNKeys:	la	$a0,numValues			# agr temos que achar o valor desse registrador
 		li	$a2,1				# numero de values por key
 		#move	$a3,$t3
 		jal	getValueAddr			# pega o endereco relativo a chave passada
@@ -718,9 +716,68 @@ keepNaNKeys:	la	$a0,regValues			# agr temos que achar o valor desse registrador
 		addi	$sp,$sp,4	
 		jr	$ra
 
-getNumberValue:
 
-getDataLabelCode:
+getNumberValue:	# receve em $a3 um indicador de fim de numero
+		# retorna em $v0 o valor numerico de um numero decimal escrito no arquivo
+		addi	$sp,$sp,-4
+		sw	$ra,0($sp)
+		move	$t9,$zero			# flag de numero negativo, assumo sem sinal
+		move	$t6,$zero			# armazenar o numero convertido
+		jal	readNotNullByte
+		bne	$v1,'-',noFlag
+		addiu	$t9,$zero,1			# ativo a flag de numero com sinal
+		jal	readByte
+noFlag:		bne	$v1,'0',dec
+		jal	readByte
+		bne	$v1,'x',dec			# nao começa com 0x, deve ser decimal. Poderia tratar como octal, mas não será feito
+hexa:		move	$t7,$s7				# salvo o endereço do MSB
+		la	$t0,hexaSymbols
+		li	$t1,16
+		j	findLSB
+dec:		addi	$t7,$s7,-1			# salvo o endereço do MSB
+		la	$t0,decSymbols
+		li	$t1,10
+findLSB:	jal	readByte
+		beq	$v1,' ',LSB
+		beq	$v1,10,LSB
+		beq	$v1,$a3,LSB			# quando ler no .data, passar ',' . PAssar ' ' ou 10 c.c.
+		j	findLSB
+LSB:		addi	$t8,$s7,-2			# vetor $t8 aponta pro LSB
+		move	$t4,$zero			# expoente $t4 da base $t1
+nextDigit:	move	$t5,$zero			# index do digito na lista de simbolos. Note que o index = valor do numero
+		lb	$t2,($t8)
+findSymbol:	lb	$t3,($t0)			# simbolo de index $t5
+		beq	$t2,$t3,foundValue
+		addi	$t0,$t0,1
+		addi	$t5,$t5,1
+		j 	findSymbol
+foundValue:	subu	$t0,$t0,$t5			# reseto o $t0 para o priiro elemento da lista
+		addi	$sp,$sp,-1
+		sb	$t4,0($sp)			# salvar o valor do expoente
+exponential:	beq	$t4,$zero,gotDigitValue		# calculei  $t5*$t1^($t4) e armazenei em $t5
+		mul	$t5,$t5,$t1
+		#mfhi	$				# checar se passou de 32 bits
+		#beq	$,$zero,error
+		addi	$t4,$t4,-1
+		j	exponential
+gotDigitValue:	lb	$t4,0($sp)			# recupero o expoente(peso) do ultimo digito 
+		addi	$sp,$sp,1
+		add	$t6,$t6,$t5
+		addi	$t4,$t4,1
+		beq	$t8,$t7,retNumber
+		addi	$t8,$t8,-1
+		j	nextDigit
+retNumber:	beq	$t9,$zero,unsigned
+		not	$t6,$t6
+		addi	$t6,$t6,1
+unsigned:	move	$v0,$t6
+		lw	$ra,0($sp)
+		addi	$sp,$sp,4
+		jr	$ra
+
+
+getDataLabelCode: # recebe em $a3 o parametros do getLabelCode apenas para repassar para ele
+		  # chama getLabelCode com os parametros da secao .text e trata erros
 		addi	$sp,$sp,-4
 		sw	$ra,0($sp)
 		la	$a0,dataLabelValues
@@ -738,7 +795,8 @@ errorDataLabel:	la	$a0,textLabelValues
 		j	errorInvMemory	
 
 
-getTextLabelCode: # recebe em $a3 o parametros do getLabelCode apenas para repassar para ele
+getTextLabelCode:# recebe em $a3 o parametros do getLabelCode apenas para repassar para ele
+ 		 # chama getLabelCode com os parametros da secao .text e trata erros
 		addi	$sp,$sp,-4
 		sw	$ra,0($sp)
 		la	$a0,textLabelValues
@@ -758,6 +816,7 @@ errorTextLabel:	la	$a0,dataLabelValues
 						
 										
 getLabelCode:	# recebe em $a0,$a1,$a3 o parametros do getValueAddr apenas para repassar para ele
+		# retorna em $v0, o endereco do valor da label(PC) da secao escolhida pelos parametros $a0 e $a1
 		addi	$sp,$sp,-4
 		sw	$ra,0($sp)
 		jal 	consumeSpaces
@@ -821,7 +880,7 @@ assemblerJ:	# desempilho a pilha  - addr:4-7($sp) opcode:0($sp) - e monto o codi
 		jr 	$ra
 		
 		
-storeAllLabels:	
+storeAllTextLabels:	
 		addi	$sp,$sp,-4
 		sw	$ra,0($sp)
 checkLine:	jal	consumeBlankLines
@@ -926,6 +985,15 @@ errorInvSkip:
 		la	$a0,msgInvSkip
 		j 	printErrorMsg	
 
+errorWrongBase:	
+		la	$a0,msgWrongBase
+		j 	printErrorMsg
+
+errorOutOfRange:	
+		la	$a0,msgOutOfRange
+		j 	printErrorMsg
+
+
 printErrorMsg:	
 		li	$v0,55
 		li	$a1,0
@@ -945,17 +1013,11 @@ printErrorMsg:
 	fimLinha:		.asciiz		";\n"
 	rodape:			.asciiz 	";\nEND;\n"
 	buffer:			.space		9
-	hexaKeys:		.asciiz		"0123456789abcdef"
-	hexaValues:		.byte		0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
-	decKeys:		.asciiz		"0123456789"
-	decValues:		.byte		0,1,2,3,4,5,6,7,8,9
-	octKeys:		.asciiz		"01234567"
-	octValues:		.byte		0,1,2,3,4,5,6,7
-	binKeys:		.asciiz		"01"
-	binValues:		.byte		0,1
+	hexaSymbols:		.asciiz		"0123456789abcdef"
+	decSymbols:		.asciiz		"0123456789"
 	regKeysNum:		.asciiz		"0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,"
 	regKeysNaN:		.asciiz		"zero,at,v0,v1,a0,a1,a2,a3,t0,t1,t2,t3,t4,t5,t6,t7,s0,s1,s2,s3,s4,s5,s6,s7,t8,t9,k0,k1,gp,sp,fp,ra,"
-	regValues:		.byte		0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
+	numValues:		.byte		0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31
 	keysRA:			.asciiz		"add,addu,and,movn,nor,or,slt,sltu,sub,subu,xor,"
 	valuesRA:		.byte		0x20,0x21,0x24,0xb,0x27,0x25,0x2a,0x2b,0x22,0x23,0x26	# funct
 	keysRB:			.asciiz		"div,mult,"
@@ -993,5 +1055,7 @@ printErrorMsg:
 	msgNoOperator:		.asciiz		"Not a recognized operator."
 	msgNoLabel:		.asciiz		"Label not found in file."
 	msgSameLabel:		.asciiz		"Label already defined in file."
-	msgInvMemory:		.asciiz		"Cannot load or write directly to text segment"
+	msgInvMemory:		.asciiz		"Cannot load or write directly to text segment."
 	msgInvSkip:		.asciiz		"Cannot skip to .data area."
+	msgWrongBase:		.asciiz		"Not a valid base."
+	msgOutOfRange:		.asciiz		"Operand is out of range."
