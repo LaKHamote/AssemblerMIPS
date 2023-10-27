@@ -30,7 +30,7 @@ div  $t2,     $s1
         srav   $6,     $s5, $0  
 div  $t2,     $s1
 ncaisjj: 
-sll $6,   $9 1
+sll $6,   $9 10
 jal   fff
 fff:
 addi	$4, $6, -12
@@ -273,7 +273,7 @@ typeRF:		la	$a0,valuesRF
 		sb	$v0,2($sp)		# empilhar rt
 		li	$a3,' '
 		jal	getNumberValue
-		bgeu	$v0,0x2,errorOutOfRange	# deve caber em 5 bits
+		bgeu	$v0,0x20,errorOutOfRange# deve caber em 5 bits
 		sb	$v0,4($sp)		# empilhar shamt
 		jal	checkManyParams
 		sb	$zero,1($sp) 		# empilhar rs
@@ -729,7 +729,9 @@ getNumberValue:	# receve em $a3 um indicador de fim de numero
 		jal	readByte
 noFlag:		bne	$v1,'0',dec
 		jal	readByte
-		bne	$v1,'x',dec			# nao começa com 0x, deve ser decimal. Poderia tratar como octal, mas não será feito
+		beq	$v1,'x',hexa			# nao começa com 0x, deve ser decimal. Poderia tratar como octal, mas não será feito
+		addi 	$s7,$s7,-1
+		j	dec
 hexa:		move	$t7,$s7				# salvo o endereço do MSB
 		la	$t0,hexaSymbols
 		li	$t1,16
@@ -747,6 +749,7 @@ LSB:		addi	$t8,$s7,-2			# vetor $t8 aponta pro LSB
 nextDigit:	move	$t5,$zero			# index do digito na lista de simbolos. Note que o index = valor do numero
 		lb	$t2,($t8)
 findSymbol:	lb	$t3,($t0)			# simbolo de index $t5
+		beq	$t3,0,errorInvSymbol
 		beq	$t2,$t3,foundValue
 		addi	$t0,$t0,1
 		addi	$t5,$t5,1
@@ -774,6 +777,7 @@ unsigned:	move	$v0,$t6
 		lw	$ra,0($sp)
 		addi	$sp,$sp,4
 		jr	$ra
+
 
 
 getDataLabelCode: # recebe em $a3 o parametros do getLabelCode apenas para repassar para ele
@@ -992,6 +996,10 @@ errorWrongBase:
 errorOutOfRange:	
 		la	$a0,msgOutOfRange
 		j 	printErrorMsg
+		
+errorInvSymbol:	
+		la	$a0,msgInvSymbol
+		j 	printErrorMsg
 
 
 printErrorMsg:	
@@ -1059,3 +1067,4 @@ printErrorMsg:
 	msgInvSkip:		.asciiz		"Cannot skip to .data area."
 	msgWrongBase:		.asciiz		"Not a valid base."
 	msgOutOfRange:		.asciiz		"Operand is out of range."
+	msgInvSymbol:		.asciiz		"Not a valid symbol for known bases (hexa or decimal)."
