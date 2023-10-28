@@ -25,7 +25,7 @@ jal Label6
 jr $ra
 Label5: lb $t7, 100($s0)
 lui $t8, 0xffff
-lw $t9, vect5($s1)
+#lw $t9, vect5($s1)
 mfhi $t0
 Label6: slt $t9, $s5, $s6
 mflo $t1
@@ -37,6 +37,19 @@ sll $t8, $s4, 2
 slti $t0, $s7, 10
 sltu $t1, $s4, $s0
 
+
+
+#sb $t7, 555($s3)
+sra $t2, $s0, 3
+srav $t3, $s1, $s2
+srl $t4, $s3, 2
+sub $t5, $s4, $s5
+subu $t6, $s6, $s7
+ or $t5, $s0, $s1
+#sw $t7, vect1($s4)
+xor $t8, $s0, $s0
+xori $t9, $s1, 255
+ori $t6, $s2, 255
 
 
 
@@ -53,8 +66,8 @@ sltu $t1, $s4, $s0
 		bne	$v1,'t',errorNoSection
 		jal	readByte
 		bne	$v1,'a',errorNoSection
-		li	$s6,0				# 'nosso pc' contador da memoria de dados
-		la 	$a0,openDataFile    # endereço da string que contém o nome do arquivo
+		li	$s6,0			# 'nosso pc' contador da memoria de dados
+		la 	$a0,openDataFile   		# endereço da string que contém o nome do arquivo
 		jal	writeHeader
 		jal	readNotNullByte
 		beq	$v1,10,dataSection		# checo se depos de ler text nao ha nenhum char significativo
@@ -865,6 +878,7 @@ dec:		addi	$t7,$s7,-1			# salvo o endereço do MSB
 findLSB:	jal	readByte
 		beq	$v1,' ',LSB
 		beq	$v1,10,LSB
+		beq	$v1,0,LSB
 		beq	$v1,$a3,LSB			# quando ler no .data, passar ',' . PAssar ' ' ou 10 c.c.
 		j	findLSB
 LSB:		addi	$t8,$s7,-2			# vetor $t8 aponta pro LSB
@@ -908,8 +922,9 @@ getDataLabelCode: # recebe em $a3 o parametros do getLabelCode apenas para repas
 		sw	$ra,0($sp)
 		la	$a0,dataLabelValues
 		la	$a1,dataLabelKeys
-		jal	getLabelCode
+		jal	getLabelAddr
 		beq	$v0,$zero,errorDataLabel
+		lw	$v0,($v0)
 		lw	$ra,0($sp)
 		addi	$sp,$sp,4
 		jr	$ra	
@@ -927,8 +942,9 @@ getTextLabelCode:# recebe em $a3 o parametros do getLabelCode apenas para repass
 		sw	$ra,0($sp)
 		la	$a0,textLabelValues
 		la	$a1,textLabelKeys
-		jal	getLabelCode
+		jal	getLabelAddr
 		beq	$v0,$zero,errorTextLabel
+		lw	$v0,($v0)
 		lw	$ra,0($sp)
 		addi	$sp,$sp,4
 		jr	$ra	
@@ -941,8 +957,8 @@ errorTextLabel:	la	$a0,dataLabelValues
 				
 						
 										
-getLabelCode:	# recebe em $a0,$a1,$a3 o parametros do getValueAddr apenas para repassar para ele
-		# retorna em $v0, o endereco do valor da label(PC) da secao escolhida pelos parametros $a0 e $a1
+getLabelAddr:	# recebe em $a0,$a1,$a3 o parametros do getValueAddr apenas para repassar para ele
+		# retorna em $v0, o endereco do valor da label(PC) da secao escolhida pelos parametros $a0 e $a1 ou 0 caso nao ache.
 		addi	$sp,$sp,-4
 		sw	$ra,0($sp)
 		jal 	consumeSpaces
@@ -952,9 +968,7 @@ getLabelCode:	# recebe em $a0,$a1,$a3 o parametros do getValueAddr apenas para r
 		jal	getValueAddr
 		lw	$ra,0($sp)
 		addi	$sp,$sp,4
-		beq	$v0,$zero,noLabel		# aqui verificar se nao achou no textLabel, ver no dataLabel e vice-versa
-		lw	$v0,($v0)
-noLabel:	jr 	$ra	
+		jr 	$ra	
 		
 assemblerR:	# desempilho a pilha - funct:5($sp) shamt(4) rd(3) rt(2) rs(1) opcode:0($sp) - e monto o codigo de instrucao tipo R em $v0
 		lb	$a0,0($sp)
@@ -990,6 +1004,7 @@ assemblerI:	# desempilho a pilha - addr:4-7($sp) rt(2) rs(1) opcode:0($sp) - e m
 		add	$t0,$t0,$a0
 		sll	$t0,$t0,16
 		lw	$a0,4($sp)
+		andi 	$a0,$a0,0xffff			# deixar numeros negativos em 16 bits
 		add	$t0,$t0,$a0
 		add 	$sp,$sp,8
 		move	$v0,$t0
@@ -1179,12 +1194,12 @@ printErrorMsg:
 	valuesIB:		.byte		0x4,0x5		# opcode
 	keysIC:			.asciiz		"lw,sw,"
 	valuesIC:		.byte		0x23,0x2b	# opcode
-	keysID:			.asciiz		"lb,sl,"
+	keysID:			.asciiz		"lb,sb,"
 	valuesID:		.byte		0x20,0x28	# opcode
 	keysIE:			.asciiz		"lui,"
 	valuesIE:		.byte		0xf		# opcode
 	keysIF:			.asciiz		"bgez,bgezal,"
-	valuesIF:		.byte		0x1,0x1,0x1,0x21	# (opcode,rt)
+	valuesIF:		.byte		0x1,0x1,0x1,0x11	# (opcode,rt)
 	keysJA:			.asciiz		"j,jal,"
 	valuesJA:		.byte		0x2,0x3		# opcode
 	
