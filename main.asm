@@ -13,7 +13,7 @@ addiu $t2, $s3, 5
 addu $t3, $s4, $s5
 and $t4, $s6, $s7
 Label2:andi $t5, $s4, 255
-beq $s0, $s1, Label1
+beq $s0, $s1, Label5
 bgez $s2, Label2
 bgezal $s3, Label3
 bne $s4, $s5, Label4
@@ -23,33 +23,29 @@ j Label5
 Label1: nor $t4, $s4, $s0
 jal Label6
 jr $ra
-Label5: lb $t7, 100($s0)
 lui $t8, 0xffff
-#lw $t9, vect5($s1)
 mfhi $t0
 Label6: slt $t9, $s5, $s6
 mflo $t1
 Label3:movn $t2, $s2, $s3
 mul $t3, $s4, $s5
 mult $s6, $s7
-
 sll $t8, $s4, 2
 slti $t0, $s7, 10
 sltu $t1, $s4, $s0
-
-
-
-#sb $t7, 555($s3)
 sra $t2, $s0, 3
 srav $t3, $s1, $s2
-srl $t4, $s3, 2
+Label5:srl $t4, $s3, 2
 sub $t5, $s4, $s5
 subu $t6, $s6, $s7
  or $t5, $s0, $s1
-#sw $t7, vect1($s4)
 xor $t8, $s0, $s0
 xori $t9, $s1, 255
 ori $t6, $s2, 255
+sw $t7, vect1($s4)
+lw $t9, vect5($s1)
+
+
 
 
 
@@ -615,7 +611,7 @@ typeJA:		la	$a0,valuesJA
 		addi	$s6,$s6,4
 		j 	textLine
 
-noInstr:	jal	errorNoSuchOperator
+noInstr:	jal	errorInvInstr
 
 		
 end:		# parar o programa
@@ -634,7 +630,7 @@ readFile:	# ler o filePath
 		li 	$v0,14
 		move	$a0,$t0		# passar file descriptor
 		la	$a1,fileWords
-		la	$a2,1024
+		la	$a2,4096
 		syscall
 		# fechar arquivo 
 		li 	$v0,16
@@ -714,7 +710,7 @@ writeInstr:   	# escrever o valor da instrucao
     		
 closeFile:  	# fechar o arquivo .MIF
     		li 	$v0, 16            # código do sistema para fechar um arquivo
-    		li 	$a0, 0             # identificador do arquivo ????????????????????????????????????????????????????
+    		li 	$a0, 0             # identificador do arquivo ????????????????????????????????????????????????????´posso passar $s0 pra $a0 para fechar o arquivo certo
     		syscall
     		jr 	$ra
 
@@ -1141,7 +1137,11 @@ errorOutOfRange:
 errorInvSymbol:	
 		la	$a0,msgInvSymbol
 		j 	printErrorMsg
-		
+
+errorInvInstr:	
+		la	$a0,msgInvInstr
+		j 	printErrorMsg
+						
 errorWStorageType:	
 		la	$a0,msgWrongStorageType
 		j 	printErrorMsg
@@ -1151,10 +1151,13 @@ printErrorMsg:
 		li	$v0,55
 		li	$a1,0
 		syscall
+		li	$v0,4
+		move	$a0,$s7
+		syscall
 		j	end
 
 .data
-	fileWords: 		.space  	1024
+	fileWords: 		.space  	4096
 	dataLabelKeys:		.space		256  # aqui escrevo as labels dos dodos lidas
 	dataLabelValues:	.space		128  # pc do inicio da lista de .word
 	textLabelKeys:		.space		256  # aqui escrevo as labels do text lidas
@@ -1187,7 +1190,7 @@ printErrorMsg:
 	keysRG:			.asciiz		"srav,"
 	valuesRG:		.byte		0x7		# funct
 	keysRH:			.asciiz		"mfhi,mflo,"
-	valuesRH:		.byte		0x1a,0x18	# funct
+	valuesRH:		.byte		0x10,0x12	# funct
 	keysIA:			.asciiz		"addi,addiu,andi,ori,slti,xori,"
 	valuesIA:		.byte		0x8,0x9,0xc,0xd,0xa,0xe		# opcode
 	keysIB:			.asciiz		"beq,bne,"
@@ -1207,11 +1210,12 @@ printErrorMsg:
 	msgFewParams:		.asciiz 	"Too few or incorrectly formatted operands."
 	msgManyParams:		.asciiz 	"Too many operands."
 	msgWrongParam:	 	.asciiz		"Operand is of incorrect type."
-	msgNoOperator:		.asciiz		"Not a recognized operator."
+	msgNoOperator:		.asciiz		"Not a recognized register."
 	msgNoLabel:		.asciiz		"Label not found in file."
 	msgSameLabel:		.asciiz		"Label already defined in file."
 	msgInvMemory:		.asciiz		"Cannot load or write directly to text segment."
 	msgInvSkip:		.asciiz		"Cannot skip to data segment."
+	msgInvInstr:		.asciiz		"Not a recognized instruction."
 	msgWrongBase:		.asciiz		"Not a valid base."
 	msgOutOfRange:		.asciiz		"Operand is out of range."
 	msgInvSymbol:		.asciiz		"Not a valid symbol for known bases (hexa or decimal)."
