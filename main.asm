@@ -1,44 +1,46 @@
+.data
+vect1: .word  0x1234
+vect2: .word 0x5678
+vect3: .word 0x9abc
+vect4: .word 0xdef0
+vect5: .word 0x1357
+vect6: .word 0x2468
+
 .text
+Label4:add $t0, $s0, $s1
+addi $t1, $s2, 10
+addiu $t2, $s3, 5
+addu $t3, $s4, $s5
+and $t4, $s6, $s7
+Label2:andi $t5, $s4, 255
+beq $s0, $s1, Label1
+bgez $s2, Label2
+bgezal $s3, Label3
+bne $s4, $s5, Label4
+clo $t6, $s6
+div $s7, $s4
+j Label5 
+Label1: nor $t4, $s4, $s0
+jal Label6
+jr $ra
+Label5: lb $t7, 100($s0)
+lui $t8, 0xffff
+lw $t9, vect5($s1)
+mfhi $t0
+Label6: slt $t9, $s5, $s6
+mflo $t1
+Label3:movn $t2, $s2, $s3
+mul $t3, $s4, $s5
+mult $s6, $s7
+
+sll $t8, $s4, 2
+slti $t0, $s7, 10
+sltu $t1, $s4, $s0
 
 
-a:    movn  $0     $1,     $s7
-      div         $t2,     $s1
-    addu   $t1,     $3,     $s3
-    sltu   $t7,     $s6,     $s2 
-and $t2, $s4, $s6
-        movn   $zero     $s6,   $s7
-        minhalabelgigante: mult   $t3     $s5   
-        or     $4,    $s0, $s5
-        slt    $20,     $s4     $s1
-nor    $t4,     $24    $s2 
-bgez  $7,  ncaisjj
-add    $t0,     $s0   $26
-pea:      sub    $31,     $s7     $s3
-asadsd:subu   $t9,        $s6,     $s5
-xor    $t6,     $s5, $s0           
-dddddddddd: div  $t2,     $s1 
-div  $t2,     $s1 
-div  $t2,     $s1 
-jbcas:clo   $t6,     $5
-div $t2  $s2 
-div $t2  $s2 
-j    ncaisjj
-beq $t1,$t1 ncaisjj
-div  $t2,     $s1
-mul   $6,     $s5, $0
-div  $t2,     $s1
-        srav   $6,     $s5, $0  
-div  $t2,     $s1
-ncaisjj: 
-sll $6,   $9 10
-jal   fff
-fff:
-addi	$4, $6, -12
-lb	$t1,msgFewParams
 
 
 		jal	readFile
-		jal	writeHeader
 		la	$s7,fileWords 			# ponteiro para o texto
 		jal 	consumeBlankLines
 		jal 	readByte
@@ -52,6 +54,8 @@ lb	$t1,msgFewParams
 		jal	readByte
 		bne	$v1,'a',errorNoSection
 		li	$s6,0				# 'nosso pc' contador da memoria de dados
+		la 	$a0,openDataFile    # endereço da string que contém o nome do arquivo
+		jal	writeHeader
 		jal	readNotNullByte
 		beq	$v1,10,dataSection		# checo se depos de ler text nao ha nenhum char significativo
 		beq	$v1,0,end
@@ -68,13 +72,15 @@ maybeText:	bne	$v1,'t',errorNoSection
 		bne	$v1,'x',errorNoSection
 		jal	readByte
 		bne	$v1,'t',errorNoSection
+		la 	$a0,openTextFile    # endereço da string que contém o nome do arquivo
+		jal	writeHeader
 		li	$s6,0x400000			# 'nosso pc' contador da memoria de instrucoes
 		jal	readNotNullByte
 		beq	$v1,10,textSection		# checo se depos de ler text nao ha nenhum char significativo
 		beq	$v1,0,end
 		j	errorNoSection	
 		
-dataSection:	# provavelmente a primeira coisa eh label -> NAME: .STORAGEFORMAT VALUE
+dataSection:	# programa principal para tratamento da area .data
 		jal	consumeBlankLines
 		lb	$t0,($s7)
 		beq	$t0,'.',findText
@@ -112,7 +118,7 @@ dataLine:	jal	readNotNullByte
 		j	dataLine
 		
 		
-textSection:	
+textSection:	# programa principal para tratamento da area .text
 		move	$s5,$s7				# salvo o ponteiro para o inicio do .text
 		jal 	storeAllTextLabels
 		move	$s7,$s5				# restoro o pornteito para reler o .text de novo focado nas instrucoes	
@@ -382,7 +388,36 @@ typeRH:		la	$a0,valuesRH
 		addi	$s6,$s6,4
 		j 	textLine
 
-typeIA:
+typeIA:		la	$a0,valuesIA
+		la	$a1,keysIA
+		li	$a2,1			# numero de values por key
+		li	$a3,' '
+		jal	getValueAddr		# pega o endereco relativo a chave passada
+		beq	$v0,$zero,typeIB
+		# Achei a instr, agora so empilhar na pilha: imm:4-7($sp) rt(2) rs(1) opcode:0($sp)
+		addi	$sp,$sp,-8		# desloco 8 Bytes e nunca uso 3($sp)
+		lb	$t0,($v0)
+		sb	$t0,0($sp)		# empilhar opcode
+		li	$a3,','
+		jal 	getRegCode
+		sb	$v0,2($sp)		# empilhar rt
+		li	$a3,','
+		jal 	getRegCode
+		sb	$v0,1($sp) 		# empilhar rs
+		li	$a3,' '
+		jal	getNumberValue
+		bgeu	$v0,0x10000,errorOutOfRange# deve caber em 16 bits
+		sw	$v0,4($sp)		# empilhar imm
+		jal	checkManyParams
+		
+		jal	writePC
+		jal	assemblerI
+		move	$a0,$v0
+		jal	writeInstr
+
+		addi	$s6,$s6,4
+		j 	textLine
+		
 
 typeIB:		la	$a0,valuesIB
 		la	$a1,keysIB
@@ -450,9 +485,63 @@ typeIC:		la	$a0,valuesIC
 		j 	textLine
 		
 		
-typeID:
+typeID:		la	$a0,valuesID
+		la	$a1,keysID
+		li	$a2,1			# numero de values por key
+		li	$a3,' '
+		jal	getValueAddr		# pega o endereco relativo a chave passada
+		beq	$v0,$zero,typeIE
+		# Achei a instr, agora so empilhar na pilha: imm:4-7($sp) rt(2) rs(1) opcode:0($sp)
+		addi	$sp,$sp,-8		# desloco 8 Bytes e nunca uso 3($sp)
+		lb	$t0,($v0)
+		sb	$t0,0($sp)		# empilhar opcode
+		li	$a3,','
+		jal 	getRegCode
+		sb	$v0,2($sp)		# empilhar rt
+		li	$a3,'('
+		jal	getNumberValue
+		bgeu	$v0,0x10000,errorOutOfRange# deve caber em 16 bits
+		sw	$v0,4($sp)		# empilhar imm
+		li	$a3,')'
+		jal 	getRegCode
+		sb	$v0,1($sp) 		# empilhar rs
+		addi	$s7,$s7,1		# quero pular a verificacao do ')'
+		jal	checkManyParams
+		
+		jal	writePC
+		jal	assemblerI
+		move	$a0,$v0
+		jal	writeInstr
 
-typeIE:
+		addi	$s6,$s6,4
+		j 	textLine
+
+typeIE:		la	$a0,valuesIE
+		la	$a1,keysIE
+		li	$a2,1			# numero de values por key
+		li	$a3,' '
+		jal	getValueAddr		# pega o endereco relativo a chave passada
+		beq	$v0,$zero,typeIF
+		# Achei a instr, agora so empilhar na pilha: imm:4-7($sp) rt(2) rs(1) opcode:0($sp)
+		addi	$sp,$sp,-8		# desloco 8 Bytes e nunca uso 3($sp)
+		lb	$t0,($v0)
+		sb	$t0,0($sp)		# empilhar opcode
+		li	$a3,','
+		jal 	getRegCode
+		sb	$v0,2($sp)		# empilhar rt
+		li	$a3,' '
+		jal	getNumberValue
+		bgeu	$v0,0x10000,errorOutOfRange# deve caber em 16 bits
+		sw	$v0,4($sp)		# empilhar imm
+		jal	checkManyParams
+		sb	$zero,1($sp)
+		jal	writePC
+		jal	assemblerI
+		move	$a0,$v0
+		jal	writeInstr
+
+		addi	$s6,$s6,4
+		j 	textLine
 
 typeIF:		la	$a0,valuesIF
 		la	$a1,keysIF
@@ -543,8 +632,8 @@ readFile:	# ler o filePath
 
 writeHeader:	# escrever no openFilePath
 		# abrir o arquivo para escrita (modo de escrita)
+		# recebe em $a0, o PATH para criar arquivo
     		li 	$v0,13           	# código da chamada do sistema para abrir o arquivo
-    		la 	$a0,openTextFile    # endereço da string que contém o nome do arquivo
     		li	$a1, 1            	# modo de escrita (1)
     		li 	$a2, 0
     		syscall
@@ -612,7 +701,7 @@ writeInstr:   	# escrever o valor da instrucao
     		
 closeFile:  	# fechar o arquivo .MIF
     		li 	$v0, 16            # código do sistema para fechar um arquivo
-    		li 	$a0, 0             # identificador do arquivo
+    		li 	$a0, 0             # identificador do arquivo ????????????????????????????????????????????????????
     		syscall
     		jr 	$ra
 
@@ -697,7 +786,7 @@ checkEndFile:	bne	$v1,0,errorManyParams
 	
 		      
 getValueAddr:	# recebe $a0(array dos valores), $a1(array das chaves), $a2(num de valor por chave) e $a3(indicador do final da palavra)
-		# le a palavra atual e retorna, se achar, o ponteiro para o(s) valor(es) em $v0(+$a2) ou 0 se nao achar
+		# le a palavra atual e retorna, se achar, o ponteiro para o(s) valor(es) em $v0(+) ou 0 se nao achar
 		move	$t7,$s7				# salvo o endereco que estou lendo para comparar do inicio para os proximos instrucoes da string
 		move	$t0,$a0				# ponteiro para indice do array dos Hexas
 		move	$t1,$a1				# ponteiro para indice do char a ser lido da string de instrucoes
@@ -744,7 +833,7 @@ keepNaNKeys:	la	$a0,numValues			# agr temos que achar o valor desse registrador
 		li	$a2,1				# numero de values por key
 		#move	$a3,$t3
 		jal	getValueAddr			# pega o endereco relativo a chave passada
-		beq	$v0, $zero,errorFewParams	# registrador inexistente
+		beq	$v0, $zero,errorNoSuchOperator	# registrador inexistente
 		lb	$v0,($v0)
 		lw	$ra,0($sp)
 		addi	$sp,$sp,4	
@@ -1084,18 +1173,20 @@ printErrorMsg:
 	valuesRG:		.byte		0x7		# funct
 	keysRH:			.asciiz		"mfhi,mflo,"
 	valuesRH:		.byte		0x1a,0x18	# funct
-	
-	
+	keysIA:			.asciiz		"addi,addiu,andi,ori,slti,xori,"
+	valuesIA:		.byte		0x8,0x9,0xc,0xd,0xa,0xe		# opcode
 	keysIB:			.asciiz		"beq,bne,"
 	valuesIB:		.byte		0x4,0x5		# opcode
 	keysIC:			.asciiz		"lw,sw,"
 	valuesIC:		.byte		0x23,0x2b	# opcode
-	
-	
+	keysID:			.asciiz		"lb,sl,"
+	valuesID:		.byte		0x20,0x28	# opcode
+	keysIE:			.asciiz		"lui,"
+	valuesIE:		.byte		0xf		# opcode
 	keysIF:			.asciiz		"bgez,bgezal,"
 	valuesIF:		.byte		0x1,0x1,0x1,0x21	# (opcode,rt)
 	keysJA:			.asciiz		"j,jal,"
-	valuesJA:		.byte		0x2,0x3
+	valuesJA:		.byte		0x2,0x3		# opcode
 	
 	msgNoSection:		.asciiz 	"Unknown section."
 	msgFewParams:		.asciiz 	"Too few or incorrectly formatted operands."
