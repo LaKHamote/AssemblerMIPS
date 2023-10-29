@@ -33,7 +33,7 @@ asciizFormat:	lb	$t0,($t7)
 		addi 	$t7,$t7,1
 		beqz	$t0,getPath		# apenas ser 0 se nao for digitado nada
 		bne	$t0,10,asciizFormat	# procurar \n
-		sb	$zero,-1($t7)		# substituir o o último '\n' que, por algum motivo é lido, por 0 para ficar no formato asciiz
+		sb	$zero,-1($t7)		# substituir o o ï¿½ltimo '\n' que, por algum motivo ï¿½ lido, por 0 para ficar no formato asciiz
 		# ler o filePath 
 		li	$v0,13
 		la	$a0,filePath
@@ -53,6 +53,49 @@ asciizFormat:	lb	$t0,($t7)
 		la	$t7,fileWords
 		lb	$t0,($t7)
 		beqz	$t0,emptyArq
+mi		la	$t0,filePath
+		la	$t1,openTextFile
+		la	$t2,openDataFile
+getArqName:	lb	$t3,($t0)
+		beq	$t3,'.',setArqMif
+		sb	$t3,($t1)
+		sb	$t3,($t2)
+		addi 	$t0,$t0,1
+		addi 	$t1,$t1,1
+		addi 	$t2,$t2,1
+		j	getArqName
+setArqMif:	li	$t3,'_'
+		sb	$t3,($t1)
+		li	$t3,'t'
+		sb	$t3,1($t1)
+		li	$t3,'e'
+		sb	$t3,2($t1)
+		li	$t3,'x'
+		sb	$t3,3($t1)
+		li	$t3,'t'
+		sb	$t3,4($t1)
+		li	$t3,'_'
+		sb	$t3,($t2)
+		li	$t3,'d'
+		sb	$t3,1($t2)
+		li	$t3,'a'
+		sb	$t3,2($t2)
+		li	$t3,'t'
+		sb	$t3,3($t2)
+		li	$t3,'a'
+		sb	$t3,4($t2)
+		li	$t3,'.'
+		sb	$t3,5($t1)
+		sb	$t3,5($t2)
+		li	$t3,'m'
+		sb	$t3,6($t1)
+		sb	$t3,6($t2)
+		li	$t3,'i'
+		sb	$t3,7($t1)
+		sb	$t3,7($t2)
+		li	$t3,'f'
+		sb	$t3,8($t1)
+		sb	$t3,8($t2)
 		jr	$ra
 emptyArq:	li	$v0,50
 		la	$a0,msgNoArq
@@ -74,5 +117,5 @@ emptyArq:	li	$v0,50
 		openDataFile:	.space		64
 		fileWords: 	.space  	4096
 		msgGetPath:	.asciiz		"Por favor digite o PATH completo pro arquivo asm a ser lido."
-		msgNoArq:	.asciiz		"Arquivo não encontrado ou vazio. Gostaria de informar outro path?"
+		msgNoArq:	.asciiz		"Arquivo nï¿½o encontrado ou vazio. Gostaria de informar outro path?"
 		
