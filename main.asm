@@ -54,7 +54,7 @@ Label5:     srl     $at, $s3, 2
 
 
 
-		jal	readFile
+		jal	getPath
 		la	$s7,fileWords 			# ponteiro para o texto
 		jal 	consumeBlankLines
 		jal 	readByte
@@ -76,7 +76,8 @@ Label5:     srl     $at, $s3, 2
 		j	errorNoSection
 		
 		jal 	consumeBlankLines
-findText:	jal 	readByte
+findText:	jal	closeFile
+		jal 	readByte
 		bne	$v1,'.',errorNoSection
 		jal 	readByte
 maybeText:	bne	$v1,'t',errorNoSection
@@ -620,6 +621,7 @@ noInstr:	jal	errorInvInstr
 
 		
 end:		# parar o programa
+		jal	closeFile
    		li 	$v0, 10
   		syscall	
 
@@ -715,7 +717,7 @@ writeInstr:   	# escrever o valor da instrucao
     		
 closeFile:  	# fechar o arquivo .MIF
     		li 	$v0, 16            # código do sistema para fechar um arquivo
-    		li 	$a0, 0             # identificador do arquivo ????????????????????????????????????????????????????´posso passar $s0 pra $a0 para fechar o arquivo certo
+    		move 	$a0, $s0            # identificador do arquivo 
     		syscall
     		jr 	$ra
 
@@ -1095,6 +1097,87 @@ findEnd:	lbu	$t0,($t7)
 noColon:	jr	$ra
 
 
+getPath:	li	$v0,54
+		la	$a0,msgGetPath
+		la	$a1,filePath
+		li	$a2,64
+		syscall	
+		la	$t7,filePath
+asciizFormat:	lb	$t0,($t7)
+		addi 	$t7,$t7,1
+		beqz	$t0,getPath		# apenas ser 0 se nao for digitado nada
+		bne	$t0,10,asciizFormat	# procurar \n
+		sb	$zero,-1($t7)		# substituir o o último '\n' que, por algum motivo é lido, por 0 para ficar no formato asciiz
+		# ler o filePath 
+		li	$v0,13
+		la	$a0,filePath
+		li	$a1,0
+		syscall
+		move 	$t0,$v0  	# armazenar file descriptor
+		# armazenar o texto com $a1 de ponteiro
+		li 	$v0,14
+		move	$a0,$t0		# passar file descriptor
+		la	$a1,fileWords
+		la	$a2,4096
+		syscall
+		# fechar arquivo 
+		li 	$v0,16
+		move	$a0,$t0		# passar file descriptor para fecha-lo
+		syscall
+		la	$t7,fileWords
+		lb	$t0,($t7)
+		beqz	$t0,emptyArq
+		la	$t0,filePath
+		la	$t1,openTextFile
+		la	$t2,openDataFile
+getArqName:	lb	$t3,($t0)
+		beq	$t3,'.',setArqMif
+		sb	$t3,($t1)
+		sb	$t3,($t2)
+		addi 	$t0,$t0,1
+		addi 	$t1,$t1,1
+		addi 	$t2,$t2,1
+		j	getArqName
+setArqMif:	li	$t3,'_'
+		sb	$t3,($t1)
+		li	$t3,'t'
+		sb	$t3,1($t1)
+		li	$t3,'e'
+		sb	$t3,2($t1)
+		li	$t3,'x'
+		sb	$t3,3($t1)
+		li	$t3,'t'
+		sb	$t3,4($t1)
+		li	$t3,'_'
+		sb	$t3,($t2)
+		li	$t3,'d'
+		sb	$t3,1($t2)
+		li	$t3,'a'
+		sb	$t3,2($t2)
+		li	$t3,'t'
+		sb	$t3,3($t2)
+		li	$t3,'a'
+		sb	$t3,4($t2)
+		li	$t3,'.'
+		sb	$t3,5($t1)
+		sb	$t3,5($t2)
+		li	$t3,'m'
+		sb	$t3,6($t1)
+		sb	$t3,6($t2)
+		li	$t3,'i'
+		sb	$t3,7($t1)
+		sb	$t3,7($t2)
+		li	$t3,'f'
+		sb	$t3,8($t1)
+		sb	$t3,8($t2)
+		jr	$ra
+emptyArq:	li	$v0,50
+		la	$a0,msgNoArq
+		syscall
+		beqz	$a0,getPath
+		j	end
+
+
 errorNoSection:
 		la	$a0,msgNoSection
 		j 	printErrorMsg
@@ -1167,9 +1250,11 @@ printErrorMsg:
 	dataLabelValues:	.space		128  # pc do inicio da lista de .word
 	textLabelKeys:		.space		256  # aqui escrevo as labels do text lidas
 	textLabelValues:	.space		128  # pc de cada label
-	filePath: 		.asciiz 	"D:/example_saida.asm"
-	openTextFile:		.asciiz		"D:/arquivo_text.mif"
-	openDataFile:		.asciiz		"D:/arquivo_data.mif"
+	filePath: 		.space 		32
+	openTextFile:		.space		32
+	openDataFile:		.space		32
+	msgGetPath:		.asciiz		"Por favor digite o PATH completo pro arquivo asm a ser lido."
+	msgNoArq:		.asciiz		"Arquivo não encontrado ou vazio. Gostaria de informar outro path?"
 	header:			.asciiz		"DEPTH = 4096;\nWIDTH = 32;\nADDRESS_RADIX = HEX;\nDATA_RADIX = HEX;\nCONTENT\nBEGIN\n\n"  # cabeçalho do arquivo .MIF
 	separador: 		.asciiz 	" : "
 	fimLinha:		.asciiz		";\n"
