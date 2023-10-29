@@ -838,8 +838,8 @@ getRegCode:	# recebe em $a3 o indicador do getValueAddr apenas para repassar par
 		addi	$sp,$sp,-4
 		sw	$ra,0($sp)
 		jal 	readNotNullByte	
-		#beq	$v1,10,errorFewParams		# se ler um '\n', ! poucos parametros !!!!!!!!!!!!!!!!OBS:ACHO QUE PODE RETIRAR COM A ADICAO DO $A3
-		bne	$v1,'$',errorWrongParam	# registradores comecam com $
+		beq	$v1,10,errorFewParams
+		bne	$v1,'$',errorWrongParam		# registradores comecam com $
 		lbu	$t1,($s7)
 		bltu	$t1,48,errorNoSuchOperator	# aqui lemos um caracter que nao existe nos registradores
 		la	$a1,regKeysNaN			# assumo que o registrador esta escrito com seu 'apelido':  $9 -> $t2
@@ -1105,7 +1105,7 @@ getPath:	li	$v0,54
 		la	$t7,filePath
 asciizFormat:	lb	$t0,($t7)
 		addi 	$t7,$t7,1
-		beqz	$t0,getPath		# apenas ser 0 se nao for digitado nada
+		beqz	$t0,emptyArq		# apenas ser 0 se nao for digitado nada
 		bne	$t0,10,asciizFormat	# procurar \n
 		sb	$zero,-1($t7)		# substituir o o último '\n' que, por algum motivo é lido, por 0 para ficar no formato asciiz
 		# ler o filePath 
@@ -1179,70 +1179,78 @@ emptyArq:	li	$v0,50
 
 
 errorNoSection:
-		la	$a0,msgNoSection
-		j 	printErrorMsg
+		la	$a1,msgNoSection
+		j 	alertErrorMsg
 				
 errorFewParams:
-		la	$a0,msgFewParams
-		j 	printErrorMsg
+		la	$a1,msgFewParams
+		j 	alertErrorMsg
 
 errorManyParams:
-		la	$a0,msgManyParams
-		j 	printErrorMsg
+		la	$a1,msgManyParams
+		j 	alertErrorMsg
 
 errorWrongParam:
-		la	$a0,msgWrongParam
-		j 	printErrorMsg
+		la	$a1,msgWrongParam
+		j 	alertErrorMsg
 
 errorNoSuchOperator:
-		la	$a0,msgNoOperator
-		j 	printErrorMsg
+		la	$a1,msgNoOperator
+		j 	alertErrorMsg
 
 errorNoSuchLabel:
-		la	$a0,msgNoLabel
-		j 	printErrorMsg
+		la	$a1,msgNoLabel
+		j 	alertErrorMsg
 		
 errorSameLabel:
-		la	$a0,msgSameLabel
-		j 	printErrorMsg
+		la	$a1,msgSameLabel
+		j 	alertErrorMsg
 
 errorInvMemory:
-		la	$a0,msgInvMemory
-		j 	printErrorMsg
+		la	$a1,msgInvMemory
+		j 	alertErrorMsg
 		
 errorInvSkip:	
-		la	$a0,msgInvSkip
-		j 	printErrorMsg	
+		la	$a1,msgInvSkip
+		j 	alertErrorMsg	
 
 errorWrongBase:	
-		la	$a0,msgWrongBase
-		j 	printErrorMsg
+		la	$a1,msgWrongBase
+		j 	alertErrorMsg
 
 errorOutOfRange:	
-		la	$a0,msgOutOfRange
-		j 	printErrorMsg
+		la	$a1,msgOutOfRange
+		j 	alertErrorMsg
 		
 errorInvSymbol:	
-		la	$a0,msgInvSymbol
-		j 	printErrorMsg
+		la	$a1,msgInvSymbol
+		j 	alertErrorMsg
 
 errorInvInstr:	
-		la	$a0,msgInvInstr
-		j 	printErrorMsg
+		la	$a1,msgInvInstr
+		j 	alertErrorMsg
 						
 errorWStorageType:	
-		la	$a0,msgWrongStorageType
-		j 	printErrorMsg
+		la	$a1,msgWrongStorageType
+		j 	alertErrorMsg
 
-
-printErrorMsg:	
-		li	$v0,55
-		li	$a1,0
-		syscall
-		li	$v0,4
-		move	$a0,$s7
+		
+alertErrorMsg:	# alerta o erro e mostra a linha inteira que o gerou
+		addi	$t7,$s7,-1
+findEndLine:	lb	$t0,($t7)
+		addi	$t7,$t7,1
+		beqz	$t0,findStartLine
+		bne	$t0,10,findEndLine
+		sb	$zero,-1($t7)
+findStartLine:	lb	$t0,-2($t7)
+		addi	$t7,$t7,-1
+		bne	$t0,10,findStartLine
+		move	$a0,$t7
+		li	$v0,59
 		syscall
 		j	end
+
+
 
 .data
 	fileWords: 		.space  	4096
@@ -1296,17 +1304,17 @@ printErrorMsg:
 	keysJA:			.asciiz		"j,jal,"
 	valuesJA:		.byte		0x2,0x3		# opcode
 	
-	msgNoSection:		.asciiz 	"Unknown section."
-	msgFewParams:		.asciiz 	"Too few or incorrectly formatted operands."
-	msgManyParams:		.asciiz 	"Too many operands."
-	msgWrongParam:	 	.asciiz		"Operand is of incorrect type."
-	msgNoOperator:		.asciiz		"Not a recognized register."
-	msgNoLabel:		.asciiz		"Label not found in file."
-	msgSameLabel:		.asciiz		"Label already defined in file."
-	msgInvMemory:		.asciiz		"Cannot load or write directly to text segment."
-	msgInvSkip:		.asciiz		"Cannot skip to data segment."
-	msgInvInstr:		.asciiz		"Not a recognized instruction."
-	msgWrongBase:		.asciiz		"Not a valid base."
-	msgOutOfRange:		.asciiz		"Operand is out of range."
-	msgInvSymbol:		.asciiz		"Not a valid symbol for known bases (hexa or decimal)."
-	msgWrongStorageType:	.asciiz		"Not a valid storage format. Use .word"
+	msgNoSection:		.asciiz 	"\nUnknown section."
+	msgFewParams:		.asciiz 	"\nToo few operands."
+	msgManyParams:		.asciiz 	"\nToo many operands."
+	msgWrongParam:	 	.asciiz		"\nOperand is of incorrect type."
+	msgNoOperator:		.asciiz		"\nNot a recognized register."
+	msgNoLabel:		.asciiz		"\nLabel not found in file."
+	msgSameLabel:		.asciiz		"\nLabel already defined in file."
+	msgInvMemory:		.asciiz		"\nCannot load or write directly to text segment."
+	msgInvSkip:		.asciiz		"\nCannot skip to data segment."
+	msgInvInstr:		.asciiz		"\nNot a recognized instruction."
+	msgWrongBase:		.asciiz		"\nNot a valid base."
+	msgOutOfRange:		.asciiz		"\nOperand is out of range."
+	msgInvSymbol:		.asciiz		"\nNot a valid symbol for known bases (hexa or decimal)."
+	msgWrongStorageType:	.asciiz		"\nNot a valid storage format. Use .word"
