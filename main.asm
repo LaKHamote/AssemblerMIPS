@@ -1,59 +1,4 @@
-.data
-vect1:      .word   0x1234
-vect2:      .word   0x5678
-vect3:      .word   0x9abc
-vect4:      .word   0xdef0
-vect5:      .word   0x1357
-vect6:      .word   0x2468
-
 .text
-Label4:     add     $31,$5,$s1  
-            addi    $t1,$s2,10 
-            addiu   $t2,$v0,5   
-            addu    $t3,$a3,$s5
-            and     $t4,$s6,$s7
-Label2:     
-            andi    $t5, $s4, 255
-            beq     $s0, $s1, Label5
-            bgez    $s2, Label2    
-            bgezal  $s3, Label3 
-            bne     $s4, $s5, Label4
-            clo     $t6, $s6
-
-            div     $7, $s4
-            j       Label5 
-Label1:     nor     $v1, $s4, $s0
-            jal     Label6
-            jr      $ra
-            lui     $a1, 0xffff
-            mfhi    $t0
-Label6:     slt     $t9, $s5, $7
-            mflo    $t1
-Label3:     movn    $t2, $s2, $s3
-            mul     $sp, $s4, $s5
-            mult    $22, $s7
-            sll     $t8, $s4,   2
-            slti    $t0, $s7, 0
-            sltu    $fp, $s4, $s0
-            sra     $t2, $s0, 3 
-
-            srav    $t3, $s1, $s2
-Label5:     srl     $at, $s3, 2  
-            sub     $zero, $s4, $s5
-            subu    $t6, $s6, $s7 
-            or      $t5, $s0, $s1
-            xor     $t8, $s0, $s0 
-            xori    $t9, $3, 255 
-            ori     $t6, $s2, 255
-
-            sw      $0, vect1($s4)   
-            lw      $t9, vect5($s1) 
-
-
-
-
-
-
 		jal	getPath
 		la	$s7,fileWords 			# ponteiro para o texto
 		jal 	consumeBlankLines
@@ -421,7 +366,7 @@ typeIA:		la	$a0,valuesIA
 		sb	$v0,1($sp) 		# empilhar rs
 		li	$a3,' '
 		jal	getNumberValue
-		bgeu	$v0,0x10000,errorOutOfRange# deve caber em 16 bits
+		bge	$v0,0x10000,errorOutOfRange# deve caber em 16 bits
 		sw	$v0,4($sp)		# empilhar imm
 		jal	checkManyParams
 		
@@ -515,7 +460,7 @@ typeID:		la	$a0,valuesID
 		sb	$v0,2($sp)		# empilhar rt
 		li	$a3,'('
 		jal	getNumberValue
-		bgeu	$v0,0x10000,errorOutOfRange# deve caber em 16 bits
+		bge	$v0,0x10000,errorOutOfRange# deve caber em 16 bits
 		sw	$v0,4($sp)		# empilhar imm
 		li	$a3,')'
 		jal 	getRegCode
@@ -546,7 +491,7 @@ typeIE:		la	$a0,valuesIE
 		sb	$v0,2($sp)		# empilhar rt
 		li	$a3,' '
 		jal	getNumberValue
-		bgeu	$v0,0x10000,errorOutOfRange# deve caber em 16 bits
+		bge	$v0,0x10000,errorOutOfRange# deve caber em 16 bits
 		sw	$v0,4($sp)		# empilhar imm
 		jal	checkManyParams
 		sb	$zero,1($sp)
@@ -1244,8 +1189,9 @@ findEndLine:	lb	$t0,($t7)
 		sb	$zero,-1($t7)
 findStartLine:	lb	$t0,-2($t7)
 		addi	$t7,$t7,-1
+		beqz	$t0,startOfFile
 		bne	$t0,10,findStartLine
-		move	$a0,$t7
+startOfFile:	move	$a0,$t7
 		li	$v0,59
 		syscall
 		j	end
@@ -1253,7 +1199,6 @@ findStartLine:	lb	$t0,-2($t7)
 
 
 .data
-	fileWords: 		.space  	4096
 	dataLabelKeys:		.space		256  # aqui escrevo as labels dos dodos lidas
 	dataLabelValues:	.space		128  # pc do inicio da lista de .word
 	textLabelKeys:		.space		256  # aqui escrevo as labels do text lidas
@@ -1261,6 +1206,7 @@ findStartLine:	lb	$t0,-2($t7)
 	filePath: 		.space 		32
 	openTextFile:		.space		32
 	openDataFile:		.space		32
+	fileWords: 		.space  	4096
 	msgGetPath:		.asciiz		"Por favor digite o PATH completo pro arquivo asm a ser lido."
 	msgNoArq:		.asciiz		"Arquivo não encontrado ou vazio. Gostaria de informar outro path?"
 	header:			.asciiz		"DEPTH = 4096;\nWIDTH = 32;\nADDRESS_RADIX = HEX;\nDATA_RADIX = HEX;\nCONTENT\nBEGIN\n\n"  # cabeçalho do arquivo .MIF
