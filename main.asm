@@ -1,5 +1,5 @@
 .text
-		jal	getPath
+		jal	loadPath
 		la	$s7,fileWords 			# ponteiro para o texto
 		jal 	consumeBlankLines
 		jal 	readByte
@@ -13,15 +13,16 @@
 		jal	readByte
 		bne	$v1,'a',errorNoSection
 		li	$s6,0			# 'nosso pc' contador da memoria de dados
-		la 	$a0,openDataFile   		# endereço da string que contém o nome do arquivo
+		la 	$a0,openDataFile   		# endereï¿½o da string que contï¿½m o nome do arquivo
 		jal	writeHeader
 		jal	readNotNullByte
 		beq	$v1,10,dataSection		# checo se depos de ler text nao ha nenhum char significativo
-		beq	$v1,0,end
+		beq	$v1,0,success
 		j	errorNoSection
 		
 		jal 	consumeBlankLines
-findText:	jal	closeFile
+findText:	jal	writeRodape
+		jal	closeFile
 		jal 	readByte
 		bne	$v1,'.',errorNoSection
 		jal 	readByte
@@ -32,19 +33,19 @@ maybeText:	bne	$v1,'t',errorNoSection
 		bne	$v1,'x',errorNoSection
 		jal	readByte
 		bne	$v1,'t',errorNoSection
-		la 	$a0,openTextFile    # endereço da string que contém o nome do arquivo
+		la 	$a0,openTextFile    # endereï¿½o da string que contï¿½m o nome do arquivo
 		jal	writeHeader
 		li	$s6,0x400000			# 'nosso pc' contador da memoria de instrucoes
 		jal	readNotNullByte
 		beq	$v1,10,textSection		# checo se depos de ler text nao ha nenhum char significativo
-		beq	$v1,0,end
+		beq	$v1,0,success
 		j	errorNoSection	
 		
 dataSection:	# programa principal para tratamento da area .data
 		jal	consumeBlankLines
 		lb	$t0,($s7)
 		beq	$t0,'.',findText
-		beq	$t0,0,end		# nao tem area .text
+		beq	$t0,0,success		# nao tem area .text
 		
 		jal 	checkIfIsLabel
 		beq	$v0,$zero,errorWrongParam
@@ -67,13 +68,14 @@ dataSection:	# programa principal para tratamento da area .data
 dataLine:	jal	readNotNullByte
 		beq	$v1,10,dataSection
 		addi	$s7,$s7,-1
-		jal	writePC
 		li	$a3,','
 		jal	getNumberValue
-		move	$a0,$v0
+		move	$s5,$v0
+		jal	writePC
+		move	$a0,$s5
 		jal	writeInstr
 		addi	$s6,$s6,4			# 4 pq trato de words
-		lb	$t0,-1($s7)			# checar o último Byte lido
+		lb	$t0,-1($s7)			# checar o ï¿½ltimo Byte lido
 		beq	$t0,10,dataSection
 		j	dataLine
 		
@@ -87,7 +89,7 @@ textLine:
 		jal	consumeBlankLines
 		
 		lb	$t0,($s7)
-		beq	$t0,0,end
+		beq	$t0,0,success
 # pra cima, temos a condicao de parada
 		jal 	checkIfIsLabel
 		beq	$v0,$zero,typeRA
@@ -98,7 +100,7 @@ skipLabel:	lb	$t0,($s7)
 		jal 	consumeBlankLines
 		 
 		lb	$t0,($s7)
-		beq	$t0,0,end
+		beq	$t0,0,success
 # pra cima vemos se temos uma Label na linha antes de tudo e pulamos ela
 		
 typeRA:		la	$a0,valuesRA
@@ -565,6 +567,13 @@ typeJA:		la	$a0,valuesJA
 noInstr:	addi	$s7,$s7,1
 		jal	errorInvInstr
 
+
+success:	jal	writeRodape
+		li	$v0,55
+		la	$a0,msgSuccess
+		li	$a1,1
+		syscall
+
 		
 end:		# parar o programa
 		jal	closeFile
@@ -573,42 +582,31 @@ end:		# parar o programa
 
 
 
-readFile:	# ler o filePath 
-		li	$v0,13
-		la	$a0,filePath
-		li	$a1,0
-		syscall
-		move 	$t0,$v0  	# armazenar file descriptor
-		# armazenar o texto com $a1 de ponteiro
-		li 	$v0,14
-		move	$a0,$t0		# passar file descriptor
-		la	$a1,fileWords
-		la	$a2,4096
-		syscall
-		# fechar arquivo 
-		li 	$v0,16
-		move	$a0,$t0		# passar file descriptor para fecha-lo
-		syscall
-		jr	$ra
-
-
 writeHeader:	# escrever no openFilePath
 		# abrir o arquivo para escrita (modo de escrita)
 		# recebe em $a0, o PATH para criar arquivo
-    		li 	$v0,13           	# código da chamada do sistema para abrir o arquivo
+    		li 	$v0,13           	# cï¿½digo da chamada do sistema para abrir o arquivo
     		li	$a1, 1            	# modo de escrita (1)
     		li 	$a2, 0
     		syscall
     		move 	$s0, $v0        	# armazenar o descritor de arquivo retornado
     		
     		# escrever no arquivo .mif
-    		li	$v0, 15            	# código da chamada do sistema para escrever no arquivo
+    		li	$v0, 15            	# cï¿½digo da chamada do sistema para escrever no arquivo
     		move 	$a0, $s0
     		la 	$a1, header
     		li 	$a2, 80         	# comprimento da string
     		syscall
     		jr 	$ra 
-    		
+ 
+   		
+writeRodape:	li 	$v0, 15            	# cï¿½digo da chamada do sistema para escrever no arquivo
+    		move 	$a0, $s0
+    		la 	$a1,rodape
+    		li 	$a2, 6        	# comprimento da string
+    		syscall
+    		jr	$ra
+   		  		  		   		  		  		
 writePC:    	# escrever o valor do PC:
 		# converter o conteudo do registrador para hexa
 		addi 	$sp, $sp, -4
@@ -618,14 +616,14 @@ writePC:    	# escrever o valor do PC:
     		li 	$a2, 9        # tamanho do buffer
     		jal 	binToHex
     		
-    		li 	$v0, 15            	# código da chamada do sistema para escrever no arquivo
+    		li 	$v0, 15            	# cï¿½digo da chamada do sistema para escrever no arquivo
     		move 	$a0, $s0
     		la 	$a1, buffer
     		li 	$a2, 8         	# comprimento da string
     		syscall 
     		
     		# escrever o separador " : "
-    		li 	$v0, 15            	# código da chamada do sistema para escrever no arquivo
+    		li 	$v0, 15            	# cï¿½digo da chamada do sistema para escrever no arquivo
     		move 	$a0, $s0
     		la 	$a1, separador
     		li 	$a2, 3         	# comprimento da string
@@ -644,14 +642,14 @@ writeInstr:   	# escrever o valor da instrucao
     		sw 	$ra, 0($sp)
     		jal 	binToHex
     		
-    		li 	$v0, 15            	# código da chamada do sistema para escrever no arquivo
+    		li 	$v0, 15            	# cï¿½digo da chamada do sistema para escrever no arquivo
     		move 	$a0, $s0
     		la 	$a1, buffer
     		li 	$a2, 8         	# comprimento da string
     		syscall 
     		
     		# escrever o ";" no fim da linha
-    		li 	$v0, 15            	# código da chamada do sistema para escrever no arquivo
+    		li 	$v0, 15            	# cï¿½digo da chamada do sistema para escrever no arquivo
     		move 	$a0, $s0
     		la 	$a1, fimLinha
     		li 	$a2, 2         	# comprimento da string
@@ -662,7 +660,7 @@ writeInstr:   	# escrever o valor da instrucao
     		jr 	$ra
     		
 closeFile:  	# fechar o arquivo .MIF
-    		li 	$v0, 16            # código do sistema para fechar um arquivo
+    		li 	$v0, 16            # cï¿½digo do sistema para fechar um arquivo
     		move 	$a0, $s0            # identificador do arquivo 
     		syscall
     		jr 	$ra
@@ -734,7 +732,7 @@ consumeSpaces: # consome todos os ' '
 		jr	$ra
 
 checkManyParams: # indica erro se tiver mais parametros numa linha
-		addi	$s7,$s7,-1			# pra tambe½m checar o indicador do final da palavra
+		addi	$s7,$s7,-1			# pra tambeï¿½m checar o indicador do final da palavra
 		addi	$sp,$sp,-4
 		sw	$ra,0($sp)	
 		jal	readNotNullByte
@@ -809,19 +807,20 @@ getNumberValue:	# receve em $a3 um indicador de fim de numero
 		move	$t9,$zero			# flag de numero negativo, assumo sem sinal
 		move	$v0,$zero			# valor de retorno da funcao
 		jal	readNotNullByte
+		beqz	$v1,success
 		bne	$v1,'-',noFlag
 		addiu	$t9,$zero,1			# ativo a flag de numero com sinal
 		jal	readByte
 noFlag:		bne	$v1,'0',dec
 		jal	readByte
-		beq	$v1,'x',hexa			# nao começa com 0x, deve ser decimal. Poderia tratar como octal, mas não será feito
+		beq	$v1,'x',hexa			# nao comeï¿½a com 0x, deve ser decimal. Poderia tratar como octal, mas nï¿½o serï¿½ feito
 		addi 	$s7,$s7,-1
 		j	dec
-hexa:		move	$t7,$s7				# salvo o endereço do MSB
+hexa:		move	$t7,$s7				# salvo o endereï¿½o do MSB
 		la	$t0,hexaSymbols
 		li	$t1,16
 		j	findLSB
-dec:		addi	$t7,$s7,-1			# salvo o endereço do MSB
+dec:		addi	$t7,$s7,-1			# salvo o endereï¿½o do MSB
 		la	$t0,decSymbols
 		li	$t1,10
 findLSB:	jal	readByte
@@ -976,7 +975,7 @@ storeAllTextLabels:
 checkLine:	jal	consumeBlankLines
 		jal 	checkIfIsLabel
 		beq	$v0,$zero,skipLine
-		# ver se a label é repetida antes de armazenar ou invoco erro
+		# ver se a label ï¿½ repetida antes de armazenar ou invoco erro
 		la	$a0,textLabelValues
 		la	$a1,textLabelKeys
 		move	$a2,$zero			# nao me importo em pegar o endereco
@@ -1043,7 +1042,7 @@ findEnd:	lbu	$t0,($t7)
 noColon:	jr	$ra
 
 
-getPath:	li	$v0,54
+loadPath:	li	$v0,54
 		la	$a0,msgGetPath
 		la	$a1,filePath
 		li	$a2,64
@@ -1053,7 +1052,7 @@ asciizFormat:	lb	$t0,($t7)
 		addi 	$t7,$t7,1
 		beqz	$t0,emptyArq		# apenas ser 0 se nao for digitado nada
 		bne	$t0,10,asciizFormat	# procurar \n
-		sb	$zero,-1($t7)		# substituir o o último '\n' que, por algum motivo é lido, por 0 para ficar no formato asciiz
+		sb	$zero,-1($t7)		# substituir o o ï¿½ltimo '\n' que, por algum motivo ï¿½ lido, por 0 para ficar no formato asciiz
 		# ler o filePath 
 		li	$v0,13
 		la	$a0,filePath
@@ -1120,7 +1119,7 @@ setArqMif:	li	$t3,'_'
 emptyArq:	li	$v0,50
 		la	$a0,msgNoArq
 		syscall
-		beqz	$a0,getPath
+		beqz	$a0,loadPath
 		j	end
 
 
@@ -1208,12 +1207,12 @@ startOfFile:	move	$a0,$t7
 	openTextFile:		.space		64
 	openDataFile:		.space		64
 	fileWords: 		.space  	4096
-	msgGetPath:		.asciiz		"Por favor digite o PATH completo pro arquivo asm a ser lido."
-	msgNoArq:		.asciiz		"Arquivo não encontrado ou vazio. Gostaria de informar outro path?"
-	header:			.asciiz		"DEPTH = 4096;\nWIDTH = 32;\nADDRESS_RADIX = HEX;\nDATA_RADIX = HEX;\nCONTENT\nBEGIN\n\n"  # cabeçalho do arquivo .MIF
+	msgGetPath:		.asciiz		"Please write the absolute PATH to your asm file."
+	msgNoArq:		.asciiz		"File not found. Try using files in the root directory.\nWould you like to try again?"
+	header:			.asciiz		"DEPTH = 4096;\nWIDTH = 32;\nADDRESS_RADIX = HEX;\nDATA_RADIX = HEX;\nCONTENT\nBEGIN\n\n"  # cabeï¿½alho do arquivo .MIF
 	separador: 		.asciiz 	" : "
 	fimLinha:		.asciiz		";\n"
-	rodape:			.asciiz 	";\nEND;\n"
+	rodape:			.asciiz 	"\nEND;\n"
 	buffer:			.space		9
 	hexaSymbols:		.asciiz		"0123456789abcdef"
 	decSymbols:		.asciiz		"0123456789"
@@ -1264,4 +1263,5 @@ startOfFile:	move	$a0,$t7
 	msgWrongBase:		.asciiz		"\nNot a valid base."
 	msgOutOfRange:		.asciiz		"\nOperand is out of range."
 	msgInvSymbol:		.asciiz		"\nNot a valid symbol for known bases (hexa or decimal)."
-	msgWrongStorageType:	.asciiz		"\nNot a valid storage format. Use .word"
+	msgWrongStorageType:	.asciiz		"\nNot a valid storage format. Use .word."
+	msgSuccess:		.asciiz		"\nCompiled Successfully!"
