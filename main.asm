@@ -562,7 +562,8 @@ typeJA:		la	$a0,valuesJA
 		addi	$s6,$s6,4
 		j 	textLine
 
-noInstr:	jal	errorInvInstr
+noInstr:	addi	$s7,$s7,1
+		jal	errorInvInstr
 
 		
 end:		# parar o programa
@@ -1203,9 +1204,9 @@ startOfFile:	move	$a0,$t7
 	dataLabelValues:	.space		128  # pc do inicio da lista de .word
 	textLabelKeys:		.space		256  # aqui escrevo as labels do text lidas
 	textLabelValues:	.space		128  # pc de cada label
-	filePath: 		.space 		32
-	openTextFile:		.space		32
-	openDataFile:		.space		32
+	filePath: 		.space 		64
+	openTextFile:		.space		64
+	openDataFile:		.space		64
 	fileWords: 		.space  	4096
 	msgGetPath:		.asciiz		"Por favor digite o PATH completo pro arquivo asm a ser lido."
 	msgNoArq:		.asciiz		"Arquivo não encontrado ou vazio. Gostaria de informar outro path?"
