@@ -49,5 +49,5 @@ Label5:     srl     $at, $s3, 2
             sw $0 vect1($s4)   
             lw $t9, vect5($s1) 
 
-            sb $t7, -99999999($s3)  
+            sb $t7, 65535($s3)  
             lb $k0, 100($s0)
