@@ -1,6 +1,14 @@
 .text
 		jal	loadPath
-		la	$s7,fileWords 			# ponteiro para o texto
+		la	$t7,fileWords 			# ponteiro para o texto
+		li	$t6,' '
+removeCBr:	lb	$t0,($t7)			# subistituir todos os '\r' pro ' '
+		addi	$t7,$t7,1
+		beqz	$t0,CBrRemoved
+		bne	$t0,13,removeCBr
+		sb	$t6,-1($t7)
+		j	removeCBr	
+CBrRemoved:	la	$s7,fileWords
 		jal 	consumeBlankLines
 		jal 	readByte
 		bne	$v1,'.',errorNoSection
@@ -1199,15 +1207,15 @@ startOfFile:	move	$a0,$t7
 
 
 .data
+	filePath: 		.space 		64
+	openTextFile:		.space		64
+	openDataFile:		.space		64
 	dataLabelKeys:		.space		256  # aqui escrevo as labels dos dodos lidas
 	dataLabelValues:	.space		128  # pc do inicio da lista de .word
 	textLabelKeys:		.space		256  # aqui escrevo as labels do text lidas
 	textLabelValues:	.space		128  # pc de cada label
-	filePath: 		.space 		64
-	openTextFile:		.space		64
-	openDataFile:		.space		64
 	fileWords: 		.space  	4096
-	msgGetPath:		.asciiz		"Please write the absolute PATH to your asm file."
+	msgGetPath:		.asciiz		"Please write the absolute PATH to your asm file.\n"
 	msgNoArq:		.asciiz		"File not found. Try using files in the root directory.\nWould you like to try again?"
 	header:			.asciiz		"DEPTH = 4096;\nWIDTH = 32;\nADDRESS_RADIX = HEX;\nDATA_RADIX = HEX;\nCONTENT\nBEGIN\n\n"  # cabe�alho do arquivo .MIF
 	separador: 		.asciiz 	" : "
