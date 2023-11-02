@@ -84,21 +84,18 @@ opcodesI = {
               "bne",   #   0x5        rs        rt             offset   
        ],
 
-       "typeIC": [#parametros: rt, offset(rs)
-              "lw",    #  0x23        rs        rt             offset   
-              "sw",    #  0x2b        rs        rt             offset   
-       ],
-
-       "typeID": [#parametros: rt, imm(rs)
+       "typeIC": [#parametros: rt, imm(rs)
               "lb",    #  0x20        rs        rt              imm   
               "sb",    #  0x28        rs        rt              imm
+              "lw",    #  0x23        rs        rt              imm   
+              "sw",    #  0x2b        rs        rt              imm   
        ],
 
-       "typeIE": [#parametros: rt, imm
+       "typeID": [#parametros: rt, imm
               "lui",   #   0xf       00000      rt              imm   
        ],
 
-       "typeIF": [#parametros: rs, offset
+       "typeIE": [#parametros: rs, offset
               "bgez",  #   0x1        rs        0x1             offset   
               "bgezal",#   0x1        rs       0x11             offset       
        ]
