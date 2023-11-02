@@ -423,44 +423,13 @@ typeIB:		la	$a0,valuesIB
 		j 	textLine
 		
 		
+		
 typeIC:		la	$a0,valuesIC
 		la	$a1,keysIC
 		li	$a2,1			# numero de values por key
 		li	$a3,' '
 		jal	getValueAddr		# pega o endereco relativo a chave passada
 		beq	$v0,$zero,typeID
-		# Achei a instr, agora so empilhar na pilha: addr:4-7($sp) rt(2) rs(1) opcode:0($sp)
-		addi	$sp,$sp,-8		# desloco 8 Bytes e nunca uso 3($sp)
-		lb	$t0,($v0)
-		sb	$t0,0($sp)		# empilhar opcode
-		li	$a3,','
-		jal 	getRegCode
-		sb	$v0,2($sp)		# empilhar rt
-		li	$a3,'('
-		jal 	getDataLabelCode
-		#srl	$t0,$t0,2		#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! nao sei pq tem q dividir por 4, mas funciona
-		sw	$v0,4($sp)		# empilhar addr
-		li	$a3,')'
-		jal 	getRegCode
-		sb	$v0,1($sp) 		# empilhar rs
-		addi	$s7,$s7,1		# quero pular a verificacao do ')'
-		jal	checkManyParams
-		
-		jal	writePC
-		jal	assemblerI
-		move	$a0,$v0
-		jal	writeInstr
-
-		addi	$s6,$s6,4
-		j 	textLine
-		
-		
-typeID:		la	$a0,valuesID
-		la	$a1,keysID
-		li	$a2,1			# numero de values por key
-		li	$a3,' '
-		jal	getValueAddr		# pega o endereco relativo a chave passada
-		beq	$v0,$zero,typeIE
 		# Achei a instr, agora so empilhar na pilha: imm:4-7($sp) rt(2) rs(1) opcode:0($sp)
 		addi	$sp,$sp,-8		# desloco 8 Bytes e nunca uso 3($sp)
 		lb	$t0,($v0)
@@ -486,12 +455,12 @@ typeID:		la	$a0,valuesID
 		addi	$s6,$s6,4
 		j 	textLine
 
-typeIE:		la	$a0,valuesIE
-		la	$a1,keysIE
+typeID:		la	$a0,valuesID
+		la	$a1,keysID
 		li	$a2,1			# numero de values por key
 		li	$a3,' '
 		jal	getValueAddr		# pega o endereco relativo a chave passada
-		beq	$v0,$zero,typeIF
+		beq	$v0,$zero,typeIE
 		# Achei a instr, agora so empilhar na pilha: imm:4-7($sp) rt(2) rs(1) opcode:0($sp)
 		addi	$sp,$sp,-8		# desloco 8 Bytes e nunca uso 3($sp)
 		lb	$t0,($v0)
@@ -513,8 +482,8 @@ typeIE:		la	$a0,valuesIE
 		addi	$s6,$s6,4
 		j 	textLine
 
-typeIF:		la	$a0,valuesIF
-		la	$a1,keysIF
+typeIE:		la	$a0,valuesIE
+		la	$a1,keysIE
 		li	$a2,2			# numero de values por key
 		li	$a3,' '
 		jal	getValueAddr		# pega o endereco relativo a chave passada
@@ -683,7 +652,7 @@ readNotNullByte:# ler proxs Bytes (Char) ate achar um (!= ' ') e armazena em $v1
 		lbu	$v1,($s7)
 		addi	$s7,$s7,1
 		beq	$v1,' ',readNotNullByte
-		#beq	$v1,9,readNotNullByte
+		beq	$v1,9,readNotNullByte
 		jr	$ra
 		
 printChar:	# mostrar na tela o conteudo de $a0 como char
@@ -726,7 +695,7 @@ consumeBlankLines: # consome todos os ' ' e '\n' seguidos
 		lbu	$t1,($s7)
 		addi	$s7,$s7,1
 		beq	$t1,' ',consumeBlankLines	# ignorar spaces
-		#beq	$t1,9,consumeBlankLines		# ignorar tabs
+		beq	$t1,9,consumeBlankLines		# ignorar tabs
 		beq	$t1,10,consumeBlankLines	# ignorar quebras de linha em linhas vazias
 		addi	$s7,$s7,-1			# volta em 1 o ponteiro do arq para lermos o char != '\n' depois
 		jr	$ra
@@ -735,7 +704,7 @@ consumeSpaces: # consome todos os ' '
 		lbu	$t1,($s7)
 		addi	$s7,$s7,1
 		beq	$t1,' ',consumeSpaces
-		#beq	$t1,9,consumeSpaces
+		beq	$t1,9,consumeSpaces
 		addi	$s7,$s7,-1 			# volta em 1 o ponteiro do arq para lermos o char != ' '
 		jr	$ra
 
@@ -762,7 +731,7 @@ checkByte:	lb	$t2,($t1)			# byte lido da string de instrucoes
 		lbu	$t3,($s7)			# byte lido do arq
 		addi	$s7,$s7,1
 		beq	$t3,' ',match			# SE achamos ' ', entao ja lemos palavra toda e temos um match
-		#beq	$v1,9,match          		# SE achamos '\t' , entao ja lemos palavra toda e temos um match
+		beq	$t3,9,match          		# SE achamos '\t' , entao ja lemos palavra toda e temos um match
 		beq	$t3,$a3,match			# OU se achamos nosso indicador -> ',' ou '\n' ou ')'
 		beq	$t3,0,match			# OU se achamos o 0 indicando fim de arquivo
 		bne	$t2,$t3,nextKey	
@@ -833,6 +802,7 @@ dec:		addi	$t7,$s7,-1			# salvo o endere�o do MSB
 		li	$t1,10
 findLSB:	jal	readByte
 		beq	$v1,' ',LSB
+		beq	$v1,9,LSB
 		beq	$v1,10,LSB
 		beq	$v1,0,LSB
 		beq	$v1,$a3,LSB			# quando ler no .data, passar ',' . PAssar ' ' ou 10 c.c.
@@ -1045,6 +1015,7 @@ findEnd:	lbu	$t0,($t7)
 		beq	$t0,0,noColon			# se achei 0, ja li a palavra sem achar ':'
 		beq	$t0,10,noColon			# se achei '\n', ja li a palavra sem achar ':'
 		beq	$t0,' ',noColon			# se achei ' ', ja li a palavra sem achar ':'
+		beq	$t0,9,noColon
 		bne	$t0,':',findEnd			# como ainda nao achei ':' ou ' ', volto a procurar
 		li	$v0,1
 noColon:	jr	$ra
@@ -1247,14 +1218,12 @@ startOfFile:	move	$a0,$t7
 	valuesIA:		.byte		0x8,0x9,0xc,0xd,0xa,0xe		# opcode
 	keysIB:			.asciiz		"beq,bne,"
 	valuesIB:		.byte		0x4,0x5		# opcode
-	keysIC:			.asciiz		"lw,sw,"
-	valuesIC:		.byte		0x23,0x2b	# opcode
-	keysID:			.asciiz		"lb,sb,"
-	valuesID:		.byte		0x20,0x28	# opcode
-	keysIE:			.asciiz		"lui,"
-	valuesIE:		.byte		0xf		# opcode
-	keysIF:			.asciiz		"bgez,bgezal,"
-	valuesIF:		.byte		0x1,0x1,0x1,0x11	# (opcode,rt)
+	keysIC:			.asciiz		"lb,sb,lw,sw,"
+	valuesIC:		.byte		0x20,0x28,0x23,0x2b	# opcode
+	keysID:			.asciiz		"lui,"
+	valuesID:		.byte		0xf		# opcode
+	keysIE:			.asciiz		"bgez,bgezal,"
+	valuesIE:		.byte		0x1,0x1,0x1,0x11	# (opcode,rt)
 	keysJA:			.asciiz		"j,jal,"
 	valuesJA:		.byte		0x2,0x3		# opcode
 	
